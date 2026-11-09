@@ -63,25 +63,25 @@
 
 ## 🚀 Quick Install (On Router)
 
-WayPoint WRT is distributed as a single self-contained archive containing the pre-compiled binary, companion CLI, init scripts, and universal installer.
+WayPoint WRT is distributed as a single self-contained archive containing the pre-compiled binary, companion CLI, init scripts, and universal installer. Pre-built static binaries are available for all OpenWrt processor architectures.
 
-### 1. Download & Extract
-Download the appropriate architecture release tarball to your router (e.g., via SCP or `wget`):
+> 🌐 **Interactive Download Portal**: [https://lucian-sins.github.io/waypoint/downloads.html](https://lucian-sins.github.io/waypoint/downloads.html)  
+> 📖 **Full Hardware Compatibility Matrix & Checksums**: [`DOWNLOADS.md`](DOWNLOADS.md)
 
-```sh
-# Example for MIPS (TP-Link ER605 v2, MediaTek MT7621, etc.)
-cd /tmp
-wget https://github.com/lucian-sins/waypoint/releases/latest/download/waypoint-openwrt-mipsel.tar.gz
-tar -xzf waypoint-openwrt-mipsel.tar.gz
-cd waypoint-openwrt-mipsel
-```
+### 1. Download & Extract by Architecture
 
-### 2. Run Installer
-```sh
-sh install.sh
-```
+Run `uname -m` on your router, then choose your architecture:
 
-The universal installer automatically:
+| Architecture | OpenWrt Target | Example Devices | 1-Liner Install Command |
+| :--- | :--- | :--- | :--- |
+| **MIPS LE** (`mipsel`) | `ramips/mt7621` | **TP-Link ER605 v2**, Xiaomi AX3000/4A, MT7621 | `wget https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-mipsel.tar.gz && tar -xzf waypoint-openwrt-mipsel.tar.gz && sh waypoint-openwrt-mipsel/install.sh` |
+| **ARM64** (`aarch64`) | `filogic`, `bcm2711` | **Raspberry Pi 4/5**, GL.iNet MT6000 (Flint 2), NanoPi | `wget https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-aarch64.tar.gz && tar -xzf waypoint-openwrt-aarch64.tar.gz && sh waypoint-openwrt-aarch64/install.sh` |
+| **x86_64** (`x86_64`) | `x86/64` | **Intel N100 / J4125**, Proxmox VM, QEMU, Protectli | `wget https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-x86_64.tar.gz && tar -xzf waypoint-openwrt-x86_64.tar.gz && sh waypoint-openwrt-x86_64/install.sh` |
+| **ARMv7** (`armv7`) | `ipq40xx` | **Qualcomm IPQ4018/4019**, Netgear R7800, WRT3200ACM | `wget https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-armv7.tar.gz && tar -xzf waypoint-openwrt-armv7.tar.gz && sh waypoint-openwrt-armv7/install.sh` |
+| **MIPS BE** (`mips`) | `ath79/generic` | **Qualcomm Atheros AR71xx**, AR9331, Archer C7 v2/v5 | `wget https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-mips.tar.gz && tar -xzf waypoint-openwrt-mips.tar.gz && sh waypoint-openwrt-mips/install.sh` |
+| **ARMv6** (`armv6`) | `bcm2708` | **Raspberry Pi 1 / Zero / Zero W** | `wget https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-armv6.tar.gz && tar -xzf waypoint-openwrt-armv6.tar.gz && sh waypoint-openwrt-armv6/install.sh` |
+
+### 2. What the Universal Installer Does
 1. Detects your router's architecture and flash storage.
 2. Checks and installs required dependencies (`wireguard-tools`, `pbr`, `openssl-util`, `stunnel`).
 3. Installs `/usr/bin/waypoint` and `/usr/sbin/vpnctl`.

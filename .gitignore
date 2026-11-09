@@ -6,6 +6,7 @@ node_modules/
 # Production build outputs
 dist/
 dist_static/
+dist_release/*/
 
 # Rust build artifacts
 target/
