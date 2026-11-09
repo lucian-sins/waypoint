@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "c706ae6f-a9a3-4fd0-8564-5d89d77525f2",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\Lucian\\Desktop\\oblivion-pwa\\.archify\\architecture-waypoint-wrt-20261109-120900\\candidate.json",
+  "output": "C:\\Users\\Lucian\\Desktop\\oblivion-pwa\\docs\\architecture.html",
+  "specification": {
+    "sha256": "6d5f6b3534d2bfca9701bef11b3376fd5658c59f674e09857d5628b7dc60f2d0",
+    "bytes": 6073
+  },
+  "artifact": {
+    "sha256": "f3fd70d92deef198f4e669e42a813e6a2bcd8065e9e6f83f31b2c4e6cb5db5df",
+    "bytes": 858791
+  }
+}

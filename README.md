@@ -26,6 +26,8 @@
 
 ## 🏗️ Architecture
 
+> 🧭 **Interactive Diagram**: An interactive, zoomable runtime and network architecture diagram rendered with **Archify** is available at [`docs/architecture.html`](docs/architecture.html) (or online via [GitHub Pages](https://lucian-sins.github.io/waypoint/)).
+
 ```
                  ┌──────────────────────────────────────────────────┐
                  │                  WayPoint WRT PWA                │

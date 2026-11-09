@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "WayPoint WRT — System & Routing Architecture",
+    "output": "docs/architecture.html",
+    "visual_preset": "blueprint",
+    "animation": "trace",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "pwa",
+      "type": "frontend",
+      "label": "WayPoint WRT UI",
+      "sublabel": "Responsive SPA",
+      "pos": [40, 240],
+      "size": [136, 62],
+      "tag": "React 19 + Vite"
+    },
+    {
+      "id": "clients",
+      "type": "external",
+      "label": "LAN Clients",
+      "sublabel": "Phones, PCs, TVs, IoT",
+      "pos": [40, 420],
+      "size": [136, 62],
+      "tag": "192.168.10.0/24"
+    },
+    {
+      "id": "stunnel",
+      "type": "security",
+      "label": "stunnel Proxy",
+      "sublabel": "TLS 1.3 Terminator",
+      "pos": [240, 160],
+      "size": [136, 62],
+      "tag": ":8443 Public"
+    },
+    {
+      "id": "daemon",
+      "type": "backend",
+      "label": "waypoint Daemon",
+      "sublabel": "Rust Native Binary",
+      "pos": [240, 280],
+      "size": [140, 64],
+      "tag": "< 2MB RAM :8440"
+    },
+    {
+      "id": "vpnctl",
+      "type": "backend",
+      "label": "vpnctl Companion",
+      "sublabel": "POSIX ash CLI",
+      "pos": [240, 420],
+      "size": [140, 62],
+      "tag": "/usr/sbin/vpnctl"
+    },
+    {
+      "id": "uci",
+      "type": "database",
+      "label": "UCI Subsystem",
+      "sublabel": "OpenWrt Config Store",
+      "pos": [460, 280],
+      "size": [136, 62],
+      "tag": "/etc/config/network"
+    },
+    {
+      "id": "pbr",
+      "type": "security",
+      "label": "pbr Engine",
+      "sublabel": "Policy-Based Routing",
+      "pos": [460, 420],
+      "size": [140, 64],
+      "tag": "nftables / fwmark"
+    },
+    {
+      "id": "conntrack",
+      "type": "backend",
+      "label": "Linux Conntrack",
+      "sublabel": "Kernel Flow Cache",
+      "pos": [460, 550],
+      "size": [136, 60],
+      "tag": "Flow Flushing"
+    },
+    {
+      "id": "kmod_wg",
+      "type": "cloud",
+      "label": "kmod-wireguard",
+      "sublabel": "Kernel WireGuard Driver",
+      "pos": [680, 280],
+      "size": [140, 64],
+      "tag": "wgus, wges, wgjp..."
+    },
+    {
+      "id": "wan_dev",
+      "type": "cloud",
+      "label": "WAN Gateway",
+      "sublabel": "Default ISP Device",
+      "pos": [680, 420],
+      "size": [136, 62],
+      "tag": "Direct Egress"
+    },
+    {
+      "id": "vpn_endpoints",
+      "type": "external",
+      "label": "WireGuard Relays",
+      "sublabel": "Encrypted VPN Endpoints",
+      "pos": [900, 280],
+      "size": [140, 62],
+      "tag": "Multi-Region"
+    },
+    {
+      "id": "internet",
+      "type": "external",
+      "label": "Public Internet",
+      "sublabel": "Unencrypted WAN",
+      "pos": [900, 420],
+      "size": [140, 62],
+      "tag": "Direct Access"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "OpenWrt Router Gateway (TP-Link ER605 v2)",
+      "wraps": ["stunnel", "daemon", "vpnctl", "uci", "pbr", "conntrack", "kmod_wg", "wan_dev"],
+      "pad": 24
+    },
+    {
+      "kind": "security-group",
+      "label": "Kernel & Routing Subsystems",
+      "wraps": ["uci", "pbr", "conntrack", "kmod_wg", "wan_dev"],
+      "pad": 16
+    },
+    {
+      "kind": "region",
+      "label": "Local LAN Subnet (br-lan)",
+      "wraps": ["pwa", "clients"],
+      "pad": 20
+    },
+    {
+      "kind": "region",
+      "label": "External Internet Egress",
+      "wraps": ["vpn_endpoints", "internet"],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "from": "pwa",
+      "to": "stunnel",
+      "label": "HTTPS :8443",
+      "variant": "emphasis"
+    },
+    {
+      "from": "stunnel",
+      "to": "daemon",
+      "label": "TLS Terminated",
+      "variant": "security"
+    },
+    {
+      "from": "pwa",
+      "to": "daemon",
+      "label": "HTTP :8443",
+      "variant": "dashed"
+    },
+    {
+      "from": "daemon",
+      "to": "vpnctl",
+      "label": "Subprocess Exec",
+      "variant": "emphasis"
+    },
+    {
+      "from": "vpnctl",
+      "to": "uci",
+      "label": "UCI Config",
+      "variant": "default"
+    },
+    {
+      "from": "vpnctl",
+      "to": "pbr",
+      "label": "Policy Rules",
+      "variant": "emphasis"
+    },
+    {
+      "from": "vpnctl",
+      "to": "conntrack",
+      "label": "Socket Flush",
+      "variant": "dashed"
+    },
+    {
+      "from": "clients",
+      "to": "pbr",
+      "label": "Outbound Flows",
+      "variant": "emphasis"
+    },
+    {
+      "from": "pbr",
+      "to": "kmod_wg",
+      "label": "fwmark Route",
+      "variant": "emphasis"
+    },
+    {
+      "from": "pbr",
+      "to": "wan_dev",
+      "label": "Default WAN",
+      "variant": "default"
+    },
+    {
+      "from": "kmod_wg",
+      "to": "vpn_endpoints",
+      "label": "UDP 51820",
+      "variant": "emphasis"
+    },
+    {
+      "from": "wan_dev",
+      "to": "internet",
+      "label": "Direct Traffic",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Micro-Footprint Daemon",
+      "items": [
+        "Single static binary written in safe Rust with zero external runtime dependencies",
+        "Embedded Vite + React single-page app served directly from RAM",
+        "Consumes < 2 MB RAM and 0% CPU on MIPS 24Kc (880 MHz) router hardware"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Granular Policy Routing",
+      "items": [
+        "1-tap per-device dispatching between Direct WAN and multi-region WireGuard relays",
+        "Smart domain policies for streaming media services (Crunchyroll, Netflix, Disney+)",
+        "Instant conntrack flow flushing on policy change with zero router downtime"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Security & Cryptography",
+      "items": [
+        "Built-in EC P-256 CSR generator (~0.13s generation on embedded MIPS)",
+        "Optional native stunnel TLS termination on configurable port (default :8443)",
+        "Hardware-enforced strict killswitch prevents unencrypted IP and DNS leaks"
+      ]
+    }
+  ]
+}
