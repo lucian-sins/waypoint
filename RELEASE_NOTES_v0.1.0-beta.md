@@ -1,6 +1,6 @@
-# WayPoint v0.1.0-beta 🧭
+# WayPoint WRT v0.1.0-beta 🧭
 
-Welcome to the initial beta release of **WayPoint** — an ultra-lightweight, single-binary daemon with an embedded responsive Progressive Web App (PWA) designed for granular, 1-tap policy-based routing directly on OpenWrt routers.
+Welcome to the initial beta release of **WayPoint WRT** — an ultra-lightweight, single-binary daemon with an embedded responsive Progressive Web App (PWA) designed for granular, 1-tap policy-based routing directly on OpenWrt routers.
 
 ---
 

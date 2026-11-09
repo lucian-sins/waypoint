@@ -1,7 +1,7 @@
-# WayPoint Product Context
+# WayPoint WRT Product Context
 
 ## Vision & Purpose
-WayPoint is a lightweight, real-time Progressive Web App (PWA) controller designed to give users granular, 1-tap policy-based routing over their local home network. Connected directly to an OpenWrt router (TP-Link ER605 v2 and compatible OpenWrt gateways), it allows individual LAN devices to be routed either directly to the WAN or through encrypted multi-region WireGuard tunnels.
+WayPoint WRT is a lightweight, real-time Progressive Web App (PWA) controller designed to give users granular, 1-tap policy-based routing over their local home network. Running as a native Rust daemon directly on an OpenWrt router (TP-Link ER605 v2 and compatible OpenWrt gateways), it allows individual LAN devices to be routed either directly to the WAN or through encrypted multi-region WireGuard tunnels.
 
 ## Target User & Context
 - **Primary User**: Home lab enthusiasts, privacy-conscious users, and families looking to effortlessly bypass geo-restrictions or isolate devices behind specific VPN relays without router restarts or manual iptables/nftables editing.

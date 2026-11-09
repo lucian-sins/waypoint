@@ -54,10 +54,13 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onGoHome}
-                className="text-base sm:text-lg font-semibold tracking-tight text-neutral-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer text-left focus:outline-none"
+                className="text-base sm:text-lg font-semibold tracking-tight text-neutral-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer text-left focus:outline-none flex items-center gap-1.5"
                 title="Return to Overview"
               >
-                WayPoint
+                <span>WayPoint</span>
+                <span className="text-[11px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-500/10 dark:bg-blue-400/15 text-blue-600 dark:text-blue-400 border border-blue-500/20 dark:border-blue-400/25">
+                  WRT
+                </span>
               </button>
               {status ? (
                 <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">

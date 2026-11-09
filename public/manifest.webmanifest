@@ -1,6 +1,6 @@
 {
-  "name": "WayPoint",
-  "short_name": "WayPoint",
+  "name": "WayPoint WRT",
+  "short_name": "WayPoint WRT",
   "description": "Per-device WAN egress & WireGuard policy routing manager for OpenWrt",
   "start_url": "/",
   "display": "standalone",

@@ -81,7 +81,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // CSR form state
   const [csrCommonName, setCsrCommonName] = useState('router.lan');
   const [csrSans, setCsrSans] = useState('192.168.10.1, router.lan');
-  const [csrOrg, setCsrOrg] = useState('WayPoint');
+  const [csrOrg, setCsrOrg] = useState('WayPoint WRT');
   const [generatingCsr, setGeneratingCsr] = useState(false);
   const [generatedCsr, setGeneratedCsr] = useState<string | null>(null);
   const [copiedCsr, setCopiedCsr] = useState(false);
@@ -1342,7 +1342,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="text"
                       value={csrOrg}
                       onChange={(e) => setCsrOrg(e.target.value)}
-                      placeholder="e.g. WayPoint Home Lab"
+                      placeholder="e.g. WayPoint WRT Home Lab"
                       className="w-full px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-xs focus:outline-none focus:border-blue-500 text-neutral-900 dark:text-neutral-100"
                     />
                   </div>

@@ -1,13 +1,13 @@
 #!/bin/sh
 # ==============================================================================
-# WayPoint — Universal OpenWrt Installer
+# WayPoint WRT — Universal OpenWrt Installer
 # Works on: OpenWrt 21.02 / 22.03 / 23.05 / 24.10 / 25.x
 # ==============================================================================
 
 set -e
 
 echo "================================================="
-echo "   WayPoint — Universal OpenWrt Installer       "
+echo "   WayPoint WRT — Universal OpenWrt Installer    "
 echo "================================================="
 
 # 1. Check Root Privileges
@@ -99,7 +99,7 @@ ROUTER_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i
 if ps | grep -v grep | grep -q "/usr/bin/waypoint"; then
     echo ""
     echo "========================================================"
-    echo "  🎉 WayPoint successfully installed and running!"
+    echo "  🎉 WayPoint WRT successfully installed and running!"
     echo "  Access the Web UI at: http://${ROUTER_IP}:8443"
     echo "========================================================"
 else

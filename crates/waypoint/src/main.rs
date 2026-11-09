@@ -685,7 +685,7 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
             if let Ok(req) = serde_json::from_str::<CsrRequest>(&body_str) {
                 let cn = req.common_name.trim();
                 let sans = req.sans.unwrap_or_else(|| cn.to_string());
-                let org = req.organization.unwrap_or_else(|| "WayPoint".to_string());
+                let org = req.organization.unwrap_or_else(|| "WayPoint WRT".to_string());
                 let country = req.country.unwrap_or_else(|| "US".to_string());
 
                 app_log(&state, "INFO", &format!("Generating SSL CSR for CN={}", cn));
@@ -1316,7 +1316,7 @@ fn main() {
     app_log(
         &state,
         "INFO",
-        &format!("⚡ WayPoint Native OpenWrt Daemon started on http://{}", bind_addr),
+        &format!("⚡ WayPoint WRT Native OpenWrt Daemon started on http://{}", bind_addr),
     );
 
     for stream_res in listener.incoming() {

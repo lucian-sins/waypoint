@@ -1,4 +1,4 @@
-# WayPoint 🧭
+# WayPoint WRT 🧭
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: OpenWrt](https://img.shields.io/badge/Platform-OpenWrt%2021.02%20--%2025.x-teal.svg)](https://openwrt.org)
@@ -28,7 +28,7 @@
 
 ```
                  ┌──────────────────────────────────────────────────┐
-                 │                   WayPoint PWA                   │
+                 │                  WayPoint WRT PWA                │
                  │        (Mobile / Desktop Browser on LAN)         │
                  └────────────────────────┬─────────────────────────┘
                                           │ HTTP / HTTPS (Port 8443)
@@ -61,7 +61,7 @@
 
 ## 🚀 Quick Install (On Router)
 
-WayPoint is distributed as a single self-contained archive containing the pre-compiled binary, companion CLI, init scripts, and universal installer.
+WayPoint WRT is distributed as a single self-contained archive containing the pre-compiled binary, companion CLI, init scripts, and universal installer.
 
 ### 1. Download & Extract
 Download the appropriate architecture release tarball to your router (e.g., via SCP or `wget`):
@@ -107,7 +107,7 @@ This compiles the single-page application into `dist_static/`.
 
 ### 2. Cross-Compile Daemon for OpenWrt
 
-WayPoint embeds the entire frontend into the final executable at compile time using `crates/waypoint/build.rs`.
+WayPoint WRT embeds the entire frontend into the final executable at compile time using `crates/waypoint/build.rs`.
 
 #### MIPS Little-Endian (`mipsel-unknown-linux-musl`):
 ```sh
@@ -133,11 +133,11 @@ The compiled binary (`~1.4 MB`) is fully statically linked with musl libc and ha
 
 ## 🔒 SSL / HTTPS & Port Configuration
 
-WayPoint includes a built-in cryptographic management engine located in **Settings → SSL & Web Server**:
+WayPoint WRT includes a built-in cryptographic management engine located in **Settings → SSL & Web Server**:
 
 * **Custom Port**: Bind the web server to any port (e.g. `8443`, `4433`, `8080`). WayPoint updates `/etc/waypoint/settings.json` and smoothly reloads without dropped sessions.
 * **EC P-256 CSR Generation**: Generate Elliptic Curve private keys and Certificate Signing Requests with Subject Alternative Names (auto-formatting IP addresses and domain names) in under **0.15s** on embedded MIPS CPUs.
-* **Certificate Upload & Stunnel Proxy**: Paste or upload your signed PEM certificate. WayPoint validates the certificate using `openssl-util` and automatically configures `stunnel` to handle TLS termination.
+* **Certificate Upload & Stunnel Proxy**: Paste or upload your signed PEM certificate. WayPoint WRT validates the certificate using `openssl-util` and automatically configures `stunnel` to handle TLS termination.
 
 ---
 
@@ -170,7 +170,7 @@ waypoint/
 
 ## 🛡️ Security & Privacy
 
-* **Zero Cloud Dependence**: WayPoint runs entirely on your local router. No analytics, tracking, or external telemetry are collected.
+* **Zero Cloud Dependence**: WayPoint WRT runs entirely on your local router. No analytics, tracking, or external telemetry are collected.
 * **Secure Key Storage**: WireGuard private keys are never stored in the application directory or embedded in binaries; they reside strictly inside OpenWrt's encrypted/protected `/etc/config/network`.
 * **Safe Subprocess Execution**: Daemon communicates with local subsystems using parameterized arguments without shell injection vectors.
 
@@ -178,4 +178,4 @@ waypoint/
 
 ## 📄 License
 
-WayPoint is licensed under the [MIT License](LICENSE).
+WayPoint WRT is licensed under the [MIT License](LICENSE).

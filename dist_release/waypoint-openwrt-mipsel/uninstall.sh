@@ -1,6 +1,6 @@
 #!/bin/sh
 # ==============================================================================
-# WayPoint Native OpenWrt Uninstaller
+# WayPoint WRT Native OpenWrt Uninstaller
 # ==============================================================================
 
 echo "[*] Stopping and disabling waypoint service..."
@@ -14,4 +14,4 @@ rm -f /usr/sbin/vpnctl
 rm -f /etc/init.d/waypoint
 rm -f /var/log/waypoint.log
 
-echo "WayPoint has been completely removed."
+echo "WayPoint WRT has been completely removed."
