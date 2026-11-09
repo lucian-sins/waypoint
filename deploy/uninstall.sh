@@ -8,6 +8,12 @@ echo "[*] Stopping and disabling waypoint service..."
 /etc/init.d/waypoint stop 2>/dev/null || true
 killall waypoint 2>/dev/null || true
 
+if [ -f /var/run/waypoint-stunnel.pid ]; then
+    kill "$(cat /var/run/waypoint-stunnel.pid)" 2>/dev/null || true
+    rm -f /var/run/waypoint-stunnel.pid
+fi
+killall stunnel 2>/dev/null || true
+
 echo "[*] Removing installed files..."
 rm -f /usr/bin/waypoint
 rm -f /usr/sbin/vpnctl

@@ -1,7 +1,8 @@
 #!/bin/sh
 # ==============================================================================
-# WayPoint WRT — Universal OpenWrt Installer
+# WayPoint WRT — Universal OpenWrt Zero-Touch Installer
 # Works on: OpenWrt 21.02 / 22.03 / 23.05 / 24.10 / 25.x
+# Target Architectures: MIPS, ARM64, ARMv7, ARMv6, x86_64
 # ==============================================================================
 
 set -e
@@ -30,8 +31,8 @@ if [ -n "$OVERLAY_FREE_KB" ]; then
     fi
 fi
 
-# 4. Check & Install Prerequisites (wireguard, pbr)
-echo "[*] Checking prerequisites..."
+# 4. Check & Install Prerequisites (wireguard, pbr, openssl, stunnel)
+echo "[*] Checking and resolving prerequisites..."
 MISSING_PKGS=""
 
 if ! command -v wg >/dev/null 2>&1; then
@@ -52,7 +53,7 @@ fi
 
 if [ -n "$MISSING_PKGS" ]; then
     echo "[*] Missing packages detected:$MISSING_PKGS"
-    echo "[*] Installing required OpenWrt packages..."
+    echo "[*] Updating package index and installing dependencies..."
     if command -v apk >/dev/null 2>&1; then
         apk update
         apk add $MISSING_PKGS || echo "[!] Notice: Some packages may already be bundled or unavailable."
@@ -60,20 +61,46 @@ if [ -n "$MISSING_PKGS" ]; then
         opkg update
         opkg install $MISSING_PKGS || echo "[!] Notice: Some packages may already be bundled or unavailable."
     else
-        echo "[!] Neither opkg nor apk found. Please ensure WireGuard and PBR are installed manually."
+        echo "[!] Neither opkg nor apk found. Please ensure WireGuard, PBR, and stunnel are installed manually."
     fi
 else
-    echo "[+] All prerequisites (wireguard, pbr) are already installed."
+    echo "[+] All prerequisite packages are installed."
 fi
 
-# 5. Stop existing service if active
+# 5. Ensure WireGuard Kernel Module is Loaded
+if ! lsmod | grep -q wireguard; then
+    echo "[*] Loading WireGuard kernel module..."
+    modprobe wireguard >/dev/null 2>&1 || true
+fi
+
+# 6. Automated Policy-Based Routing (pbr) Setup & Activation
+echo "[*] Configuring and activating Policy-Based Routing (pbr)..."
+if [ ! -f /etc/config/pbr ]; then
+    touch /etc/config/pbr
+fi
+
+if ! uci -q get pbr.config >/dev/null 2>&1; then
+    uci -q set pbr.config=pbr
+fi
+uci -q set pbr.config.enabled='1'
+uci -q set pbr.config.strict_enforcement='1'
+uci -q set pbr.config.resolver_set='none'
+uci commit pbr
+
+if [ -x /etc/init.d/pbr ]; then
+    /etc/init.d/pbr enable
+    /etc/init.d/pbr restart >/dev/null 2>&1 || /etc/init.d/pbr start >/dev/null 2>&1 || true
+    echo "[+] Policy-Based Routing (pbr) is enabled and running."
+fi
+
+# 7. Stop Existing Service If Running
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -f /etc/init.d/waypoint ]; then
     echo "[*] Stopping existing waypoint service..."
     /etc/init.d/waypoint stop 2>/dev/null || true
 fi
 
-# 6. Install Binaries and Service
+# 8. Install Binaries and Service
 echo "[*] Installing waypoint daemon to /usr/bin/waypoint..."
 cp "$SCRIPT_DIR/waypoint" /usr/bin/waypoint
 chmod +x /usr/bin/waypoint
@@ -86,23 +113,123 @@ echo "[*] Installing init service to /etc/init.d/waypoint..."
 cp "$SCRIPT_DIR/waypoint.init" /etc/init.d/waypoint
 chmod +x /etc/init.d/waypoint
 
-# 7. Enable and Start Procd Service
+# 9. Detect Network Environment & Host Info
+ROUTER_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}')
+[ -z "$ROUTER_IP" ] && ROUTER_IP=$(uci -q get network.lan.ipaddr || echo "192.168.1.1")
+ROUTER_HOST=$(uci -q get system.@system[0].hostname || echo "openwrt")
+
+# 10. Automated SSL / TLS & stunnel Provisioning
+echo "[*] Provisioning TLS certificate & stunnel HTTPS termination..."
+SSL_DIR="/etc/waypoint/ssl"
+mkdir -p "$SSL_DIR"
+chmod 700 "$SSL_DIR"
+
+TARGET_PORT="8443"
+
+if [ ! -f "$SSL_DIR/waypoint.crt" ] || [ ! -f "$SSL_DIR/waypoint.key" ]; then
+    echo "[*] Generating zero-touch EC P-256 TLS certificate for ${ROUTER_IP} / ${ROUTER_HOST}.lan..."
+    if command -v openssl >/dev/null 2>&1; then
+        SAN_DIRECTIVE="IP:${ROUTER_IP},IP:127.0.0.1,DNS:${ROUTER_HOST},DNS:${ROUTER_HOST}.lan,DNS:localhost"
+        openssl req -x509 -nodes -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+            -keyout "$SSL_DIR/waypoint.key" \
+            -out "$SSL_DIR/waypoint.crt" \
+            -days 3650 \
+            -subj "/CN=${ROUTER_IP}/O=WayPoint WRT/C=US" \
+            -addext "subjectAltName=${SAN_DIRECTIVE}" >/dev/null 2>&1 || \
+        openssl req -x509 -nodes -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+            -keyout "$SSL_DIR/waypoint.key" \
+            -out "$SSL_DIR/waypoint.crt" \
+            -days 3650 \
+            -subj "/CN=${ROUTER_IP}/O=WayPoint WRT/C=US" >/dev/null 2>&1 || true
+        
+        chmod 600 "$SSL_DIR/waypoint.key"
+        chmod 644 "$SSL_DIR/waypoint.crt"
+    fi
+fi
+
+SSL_READY="false"
+if command -v stunnel >/dev/null 2>&1 && [ -f "$SSL_DIR/waypoint.crt" ] && [ -f "$SSL_DIR/waypoint.key" ]; then
+    cat <<EOF > "$SSL_DIR/stunnel.conf"
+pid = /var/run/waypoint-stunnel.pid
+foreground = no
+output = /var/log/stunnel.log
+
+[waypoint-https]
+accept = 0.0.0.0:${TARGET_PORT}
+connect = 127.0.0.1:8440
+cert = $SSL_DIR/waypoint.crt
+key = $SSL_DIR/waypoint.key
+EOF
+    SSL_READY="true"
+    echo "[+] stunnel HTTPS proxy configured on port ${TARGET_PORT}."
+fi
+
+mkdir -p /etc/waypoint
+if [ ! -f /etc/waypoint/settings.json ]; then
+    cat <<EOF > /etc/waypoint/settings.json
+{
+  "port": ${TARGET_PORT},
+  "ssl_enabled": ${SSL_READY}
+}
+EOF
+else
+    if [ "$SSL_READY" = "true" ]; then
+        sed -i 's/"ssl_enabled":[ ]*[a-z]*/"ssl_enabled": true/' /etc/waypoint/settings.json
+    fi
+fi
+
+# 11. Security Check: Prompt for OpenWrt Root Password if Unset
+ROOT_SHADOW=$(grep '^root:' /etc/shadow 2>/dev/null | cut -d: -f2)
+if [ -z "$ROOT_SHADOW" ] || [ "$ROOT_SHADOW" = "*" ] || [ "$ROOT_SHADOW" = "!" ]; then
+    if [ -t 0 ]; then
+        echo ""
+        echo "=========================================================="
+        echo "[!] Security notice: Your OpenWrt router has no root password set."
+        printf "Would you like to set an OpenWrt root password now? [y/N]: "
+        read -r SET_PASS
+        case "$SET_PASS" in
+            [yY][eE][sS]|[yY])
+                passwd root || true
+                ;;
+            *)
+                echo "[*] Skipping password setup. You can set it later via 'passwd'."
+                ;;
+        esac
+    else
+        echo "[!] Security notice: OpenWrt root password is not set. We recommend running 'passwd'."
+    fi
+fi
+
+# 12. Enable and Start WayPoint Service
 echo "[*] Enabling and starting waypoint service..."
 /etc/init.d/waypoint enable
 /etc/init.d/waypoint restart
 
-# 8. Detect LAN IP and Display Welcome Banner
-sleep 1
-ROUTER_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}')
-[ -z "$ROUTER_IP" ] && ROUTER_IP=$(uci -q get network.lan.ipaddr || echo "192.168.1.1")
+# 13. Verify Daemon and stunnel Status
+sleep 1.5
 
-if ps | grep -v grep | grep -q "/usr/bin/waypoint"; then
-    echo ""
-    echo "========================================================"
+WAYPOINT_RUNNING="false"
+ps | grep -v grep | grep -q "/usr/bin/waypoint" && WAYPOINT_RUNNING="true"
+
+STUNNEL_RUNNING="false"
+pgrep stunnel >/dev/null 2>&1 && STUNNEL_RUNNING="true"
+
+echo ""
+echo "========================================================"
+if [ "$WAYPOINT_RUNNING" = "true" ]; then
     echo "  🎉 WayPoint WRT successfully installed and running!"
-    echo "  Access the Web UI at: http://${ROUTER_IP}:8443"
+    echo ""
+    if [ "$STUNNEL_RUNNING" = "true" ]; then
+        echo "  🔒 Secure Web UI (HTTPS): https://${ROUTER_IP}:${TARGET_PORT}"
+        echo "  🌐 Local Fallback (HTTP): http://${ROUTER_IP}:8440"
+        echo "  (Accept the self-signed certificate in your browser on first visit)"
+    else
+        echo "  🌐 Web UI (HTTP): http://${ROUTER_IP}:${TARGET_PORT}"
+    fi
+    echo "  🛡️ Policy-Based Routing: Active"
     echo "========================================================"
 else
     echo "[-] Warning: WayPoint process not detected after start."
     echo "    Check logs: cat /var/log/waypoint.log or 'logread'"
+    echo "========================================================"
 fi

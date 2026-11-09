@@ -19,10 +19,18 @@ start_service() {
 
     SSL_DIR="/etc/waypoint/ssl"
     if [ "$SSL_ENABLED" = "true" ] && [ -f "$SSL_DIR/stunnel.conf" ] && [ -f "$SSL_DIR/waypoint.crt" ] && [ -f "$SSL_DIR/waypoint.key" ]; then
+        if [ -f /var/run/waypoint-stunnel.pid ]; then
+            kill "$(cat /var/run/waypoint-stunnel.pid)" 2>/dev/null || true
+            rm -f /var/run/waypoint-stunnel.pid
+        fi
         killall stunnel 2>/dev/null || true
         stunnel "$SSL_DIR/stunnel.conf" 2>/dev/null || true
         DAEMON_PORT=8440
     else
+        if [ -f /var/run/waypoint-stunnel.pid ]; then
+            kill "$(cat /var/run/waypoint-stunnel.pid)" 2>/dev/null || true
+            rm -f /var/run/waypoint-stunnel.pid
+        fi
         killall stunnel 2>/dev/null || true
         DAEMON_PORT="$PORT"
     fi
@@ -31,9 +39,14 @@ start_service() {
     procd_set_param command "$PROG" --port "$DAEMON_PORT"
     procd_set_param stdout 1
     procd_set_param stderr 1
+    procd_set_param respawn 3600 5 0
     procd_close_instance
 }
 
 stop_service() {
+    if [ -f /var/run/waypoint-stunnel.pid ]; then
+        kill "$(cat /var/run/waypoint-stunnel.pid)" 2>/dev/null || true
+        rm -f /var/run/waypoint-stunnel.pid
+    fi
     killall stunnel 2>/dev/null || true
 }

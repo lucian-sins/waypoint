@@ -40,12 +40,12 @@ Full support for all major OpenWrt processor architectures with static musl libc
 
 | Architecture | Target Triple | Archive Asset | Package Size | SHA-256 Checksum |
 | :--- | :--- | :--- | :---: | :--- |
-| **MIPS LE** | `mipsel-unknown-linux-musl` | [`waypoint-openwrt-mipsel.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-mipsel.tar.gz) | 523 KB | `2b817497b0bed638def9c435e024c042c86f3e421140bf8b405a7c4fa93d324c` |
-| **ARM64** | `aarch64-unknown-linux-musl` | [`waypoint-openwrt-aarch64.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-aarch64.tar.gz) | 470 KB | `ce33fc15e18df335cc222228edbe790e202eb05a2e0521ddb9e78bf2bc118f85` |
-| **x86_64** | `x86_64-unknown-linux-musl` | [`waypoint-openwrt-x86_64.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-x86_64.tar.gz) | 478 KB | `edc9644cf68cce5ac17750beeb9ae5e3d08ff0ad8610956ec9cb93555d667f10` |
-| **ARMv7** | `armv7-unknown-linux-musleabihf` | [`waypoint-openwrt-armv7.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-armv7.tar.gz) | 476 KB | `a678d036de04a1127f3c62e78832ce48a0ea7635c8f6eca36fb42d3512c01c44` |
-| **MIPS BE** | `mips-unknown-linux-musl` | [`waypoint-openwrt-mips.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-mips.tar.gz) | 522 KB | `450ef1c20c0d9c8bb8f1cd6a7754f81ec2a680789782663138166c9d04a3f01b` |
-| **ARMv6** | `arm-unknown-linux-musleabi` | [`waypoint-openwrt-armv6.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-armv6.tar.gz) | 482 KB | `618832f07be8628b12d9aba000c977f79c49769b825059e43c91ebf26224dfdd` |
+| **MIPS LE** | `mipsel-unknown-linux-musl` | [`waypoint-openwrt-mipsel.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-mipsel.tar.gz) | 523 KB | `75865f1f357d4f56ea78303ee6e8996011deacc4ae23ab52d5455db65dd925d7` |
+| **ARM64** | `aarch64-unknown-linux-musl` | [`waypoint-openwrt-aarch64.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-aarch64.tar.gz) | 470 KB | `eac08979e95c6f35ed58002ab3a2a7016a79e4bdca9298ba5825bde998d636e8` |
+| **x86_64** | `x86_64-unknown-linux-musl` | [`waypoint-openwrt-x86_64.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-x86_64.tar.gz) | 478 KB | `1a274ec6e491863352c55ba3b11b10654d7caf6d38695afa67ce2fe047314878` |
+| **ARMv7** | `armv7-unknown-linux-musleabihf` | [`waypoint-openwrt-armv7.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-armv7.tar.gz) | 476 KB | `e10d15fde3a5fe9b1e9010136dbd1414fbee220855fe79951362200f44f7dfe2` |
+| **MIPS BE** | `mips-unknown-linux-musl` | [`waypoint-openwrt-mips.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-mips.tar.gz) | 522 KB | `282f1d6aa9acf3f6e9941bb126bf3d599080a03835c386f27487e113ec030d92` |
+| **ARMv6** | `arm-unknown-linux-musleabi` | [`waypoint-openwrt-armv6.tar.gz`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-armv6.tar.gz) | 482 KB | `da783e8c7ca6713e6812b4f0a893348a9679a524bb374e2b6a4b05b2cf2f1e7f` |
 | **Checksums** | All Architectures | [`SHA256SUMS.txt`](https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/SHA256SUMS.txt) | 1 KB | Plain text SHA-256 manifests |
 
 ---
