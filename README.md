@@ -1,4 +1,4 @@
-# WayPoint WRT 🧭
+# WayPoint WRT 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: OpenWrt](https://img.shields.io/badge/Platform-OpenWrt%2021.02%20--%2025.x-teal.svg)](https://openwrt.org)
@@ -26,7 +26,7 @@
 
 ## 🏗️ Architecture
 
-> 🧭 **Interactive Diagram**: An interactive, zoomable runtime and network architecture diagram rendered with **Archify** is available at [`docs/architecture.html`](docs/architecture.html) (or online via [GitHub Pages](https://lucian-sins.github.io/waypoint/)).
+>  **Interactive Diagram**: An interactive, zoomable runtime and network architecture diagram rendered with **Archify** is available at [`docs/architecture.html`](docs/architecture.html) (or online via [GitHub Pages](https://lucian-sins.github.io/waypoint/)).
 
 ```
                  ┌──────────────────────────────────────────────────┐
