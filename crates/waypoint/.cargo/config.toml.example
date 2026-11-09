@@ -1,0 +1,6 @@
+# Example Cargo configuration for cross-compiling to OpenWrt targets with Zig
+# Copy to crates/waypoint/.cargo/config.toml and adjust linker path as needed.
+
+[target.mipsel-unknown-linux-musl]
+# linker = "path/to/zig-mips-linker-script"
+rustflags = ["-C", "target-feature=+crt-static"]

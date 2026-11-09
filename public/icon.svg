@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- Background Gradient: Deep Obsidian & Dark Titanium -->
+    <linearGradient id="wp-bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0E1322"/>
+      <stop offset="60%" stop-color="#080C16"/>
+      <stop offset="100%" stop-color="#04060B"/>
+    </linearGradient>
+
+    <!-- Ambient Center Illumination -->
+    <radialGradient id="wp-glow" cx="256" cy="240" r="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB" stop-opacity="0.32"/>
+      <stop offset="55%" stop-color="#0284C7" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#04060B" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Precision Border Rim -->
+    <linearGradient id="wp-rim" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="35%" stop-color="#38BDF8" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.02"/>
+    </linearGradient>
+
+    <!-- Multi-Point Dynamic Routing Vector Gradient -->
+    <linearGradient id="wp-vector" x1="136" y1="172" x2="376" y2="172" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="28%" stop-color="#3B82F6"/>
+      <stop offset="50%" stop-color="#60A5FA"/>
+      <stop offset="72%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle Canvas Base -->
+  <rect width="512" height="512" rx="118" fill="url(#wp-bg)"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="116.5" stroke="url(#wp-rim)" stroke-width="3"/>
+
+  <!-- Subtle Radial Glow -->
+  <circle cx="256" cy="240" r="180" fill="url(#wp-glow)"/>
+
+  <!-- High-Tech Coordinate Radar Track (Background Grid Detail) -->
+  <circle cx="256" cy="256" r="148" stroke="rgba(255, 255, 255, 0.05)" stroke-width="2"/>
+  <circle cx="256" cy="256" r="148" stroke="#38BDF8" stroke-width="2.5" stroke-dasharray="14 134" stroke-opacity="0.6"/>
+
+  <!-- Forward Egress Pulse Arrow from Router Core -->
+  <path d="M256 168 L256 130" stroke="#38BDF8" stroke-width="12" stroke-linecap="round"/>
+  <path d="M242 144 L256 130 L270 144" stroke="#38BDF8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- The Waypoint Monogram "W" Routing Vector -->
+  <path d="M136 182 L196 342 L256 220 L316 342 L376 182" 
+        stroke="url(#wp-vector)" 
+        stroke-width="32" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+
+  <!-- Waypoint Pulse Ring around Router Nexus -->
+  <circle cx="256" cy="220" r="42" stroke="#38BDF8" stroke-width="2.5" stroke-dasharray="4 6" stroke-opacity="0.5"/>
+
+  <!-- Node 1: Left WAN Egress -->
+  <circle cx="136" cy="182" r="22" fill="#080C16" stroke="#38BDF8" stroke-width="8"/>
+  <circle cx="136" cy="182" r="8" fill="#38BDF8"/>
+
+  <!-- Node 2: LAN Client 1 Ingress -->
+  <circle cx="196" cy="342" r="20" fill="#080C16" stroke="#3B82F6" stroke-width="8"/>
+  <circle cx="196" cy="342" r="7" fill="#3B82F6"/>
+
+  <!-- Node 3: Center WayPoint Core Gateway -->
+  <circle cx="256" cy="220" r="28" fill="#080C16" stroke="#60A5FA" stroke-width="10"/>
+  <circle cx="256" cy="220" r="10" fill="#38BDF8"/>
+
+  <!-- Node 4: LAN Client 2 Ingress -->
+  <circle cx="316" cy="342" r="20" fill="#080C16" stroke="#6366F1" stroke-width="8"/>
+  <circle cx="316" cy="342" r="7" fill="#6366F1"/>
+
+  <!-- Node 5: Right WireGuard Egress -->
+  <circle cx="376" cy="182" r="22" fill="#080C16" stroke="#A855F7" stroke-width="8"/>
+  <circle cx="376" cy="182" r="8" fill="#A855F7"/>
+</svg>

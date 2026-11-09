@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --bg-surface: #f8f9fa;
+    --bg-surface-container: #ffffff;
+    --bg-surface-container-high: #f1f3f4;
+    --bg-surface-container-highest: #e8eaed;
+    --text-primary: #1f1f1f;
+    --text-secondary: #444746;
+    --text-tertiary: #747775;
+    --outline-variant: #e0e2ec;
+    --brand-primary: #1a73e8;
+    --brand-primary-container: #d3e3fd;
+    --brand-on-primary-container: #041e49;
+    --state-success: #1e8e3e;
+    --state-success-container: #c4eed0;
+    --state-warning: #b06000;
+    --state-warning-container: #ffe0b2;
+    --state-danger: #d93025;
+    --state-danger-container: #fce8e6;
+  }
+
+  .dark {
+    --bg-surface: #191b22;
+    --bg-surface-container: #232733;
+    --bg-surface-container-high: #2b303f;
+    --bg-surface-container-highest: #33394a;
+    --text-primary: #f0f2f5;
+    --text-secondary: #c0c4ce;
+    --text-tertiary: #8b909e;
+    --outline-variant: #424755;
+    --brand-primary: #60a5fa;
+    --brand-primary-container: #1d4ed8;
+    --brand-on-primary-container: #dbeafe;
+    --state-success: #34d399;
+    --state-success-container: #064e3b;
+    --state-warning: #fbbf24;
+    --state-warning-container: #78350f;
+    --state-danger: #f87171;
+    --state-danger-container: #7f1d1d;
+  }
+}
+
+html, body {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Google Sans", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Browser surface theming per craft-floor guidelines */
+::selection {
+  background-color: var(--brand-primary-container);
+  color: var(--brand-on-primary-container);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+input, textarea, select {
+  caret-color: var(--brand-primary);
+  user-select: text;
+}
+
+/* Subtle, native scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.22);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* Tabular figures for dynamic telemetry counters and IPs */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Micro-interaction animations */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+.animate-shake {
+  animation: shake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.08); }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 2.4s ease-in-out infinite;
+}
+
+/* Material touch feedback */
+.touch-press {
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), background-color 0.15s ease;
+}
+
+.touch-press:active {
+  transform: scale(0.975);
+}
+
+/* Safe area padding utilities */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

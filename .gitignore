@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production build outputs
+dist/
+dist_static/
+
+# Rust build artifacts
+target/
+crates/**/target/
+**/*.rs.bk
+
+# Toolchains and temporary build utilities
+zig-*/
+zig_*
+scratch/
+test_rust_mips/
+.cargo/config.toml
+crates/**/.cargo/config.toml
+
+# Environment and sensitive settings
+.env
+.env.*
+!.env.example
+*.key
+*.csr
+*.crt
+*.pem
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Agent / Workspace internals
+.agent/
+.gemini/

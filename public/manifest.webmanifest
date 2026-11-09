@@ -1,0 +1,19 @@
+{
+  "name": "WayPoint",
+  "short_name": "WayPoint",
+  "description": "Per-device WAN egress & WireGuard policy routing manager for OpenWrt",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e1322",
+  "theme_color": "#0e1322",
+  "orientation": "portrait-primary",
+  "categories": ["utilities", "networking"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

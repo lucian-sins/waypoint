@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="fav-bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0E1322"/>
+      <stop offset="100%" stop-color="#04060B"/>
+    </linearGradient>
+    <linearGradient id="fav-vector" x1="130" y1="180" x2="380" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="35%" stop-color="#3B82F6"/>
+      <stop offset="70%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="128" fill="url(#fav-bg)"/>
+  <rect x="2" y="2" width="508" height="508" rx="126" stroke="#38BDF8" stroke-opacity="0.2" stroke-width="4"/>
+
+  <!-- Forward Egress Arrow -->
+  <path d="M256 160 L256 118" stroke="#38BDF8" stroke-width="24" stroke-linecap="round"/>
+  <path d="M236 138 L256 118 L276 138" stroke="#38BDF8" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Bold High-Contrast "W" Routing Vector -->
+  <path d="M130 186 L194 346 L256 224 L318 346 L382 186" 
+        stroke="url(#fav-vector)" 
+        stroke-width="48" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+
+  <!-- High-Contrast Waypoint Nodes -->
+  <circle cx="130" cy="186" r="30" fill="#38BDF8"/>
+  <circle cx="194" cy="346" r="28" fill="#3B82F6"/>
+  <circle cx="256" cy="224" r="36" fill="#38BDF8"/>
+  <circle cx="318" cy="346" r="28" fill="#6366F1"/>
+  <circle cx="382" cy="186" r="30" fill="#A855F7"/>
+</svg>

@@ -1,0 +1,17 @@
+{
+  "subnets": [
+    "192.168.10.0/24"
+  ],
+  "router": {
+    "mode": "live",
+    "host": "192.168.10.1",
+    "sshKeyPath": "",
+    "strictKillswitch": true,
+    "pollingIntervalSeconds": 10
+  },
+  "ui": {
+    "hapticsEnabled": true
+  },
+  "deviceAliases": {},
+  "favorites": []
+}
