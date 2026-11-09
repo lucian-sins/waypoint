@@ -36,7 +36,7 @@ Download the attached `waypoint-openwrt-mipsel.tar.gz` to your router:
 
 ```sh
 cd /tmp
-wget https://github.com/OWNER/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-mipsel.tar.gz
+wget https://github.com/lucian-sins/waypoint/releases/download/v0.1.0-beta/waypoint-openwrt-mipsel.tar.gz
 tar -xzf waypoint-openwrt-mipsel.tar.gz
 cd waypoint-openwrt-mipsel
 ```

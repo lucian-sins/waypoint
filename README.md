@@ -69,7 +69,7 @@ Download the appropriate architecture release tarball to your router (e.g., via 
 ```sh
 # Example for MIPS (TP-Link ER605 v2, MediaTek MT7621, etc.)
 cd /tmp
-wget https://github.com/OWNER/waypoint/releases/latest/download/waypoint-openwrt-mipsel.tar.gz
+wget https://github.com/lucian-sins/waypoint/releases/latest/download/waypoint-openwrt-mipsel.tar.gz
 tar -xzf waypoint-openwrt-mipsel.tar.gz
 cd waypoint-openwrt-mipsel
 ```
