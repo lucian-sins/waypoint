@@ -15,6 +15,12 @@ fn get_mime(path: &str) -> &'static str {
         "application/manifest+json"
     } else if path.ends_with(".png") {
         "image/png"
+    } else if path.ends_with(".ico") {
+        "image/x-icon"
+    } else if path.ends_with(".woff2") {
+        "font/woff2"
+    } else if path.ends_with(".woff") {
+        "font/woff"
     } else {
         "application/octet-stream"
     }

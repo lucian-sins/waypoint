@@ -328,6 +328,12 @@ fn format_conf(p: &AddTunnelPayload) -> String {
 }
 
 fn ping_host(host: &str) -> Option<u32> {
+    if host.is_empty()
+        || host.starts_with('-')
+        || !host.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+    {
+        return None;
+    }
     let output = Command::new("ping")
         .args(&["-c", "1", "-W", "1", host])
         .output()
@@ -404,6 +410,7 @@ fn respond_bytes(
     );
     let _ = stream.write_all(headers.as_bytes());
     let _ = stream.write_all(body);
+    let _ = stream.flush();
 }
 
 fn respond_json(stream: TcpStream, status: u16, json: &str) {
@@ -1105,17 +1112,36 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
             }
             if let Ok(raw) = exec_vpnctl(&state, &["tunnels"]) {
                 if let Ok(mut tunnels) = serde_json::from_str::<Vec<serde_json::Value>>(&raw) {
-                    for t in tunnels.iter_mut() {
+                    let mut hosts_to_ping: Vec<(usize, String)> = Vec::new();
+                    for (idx, t) in tunnels.iter().enumerate() {
                         if t.get("state").and_then(|s| s.as_str()) == Some("up") {
                             if let Some(endpoint) = t.get("endpoint").and_then(|e| e.as_str()) {
                                 let host = endpoint.split(':').next().unwrap_or(endpoint);
-                                let lat = ping_host(host);
-                                t["latency_ms"] = lat
-                                    .map(serde_json::Value::from)
-                                    .unwrap_or(serde_json::Value::Null);
+                                hosts_to_ping.push((idx, host.to_string()));
                             }
                         }
                     }
+
+                    // Perform parallel ping probes via std::thread::scope to avoid sequential timeout blocking
+                    let latencies: Vec<(usize, Option<u32>)> = thread::scope(|s| {
+                        let handles: Vec<_> = hosts_to_ping
+                            .into_iter()
+                            .map(|(idx, host)| s.spawn(move || (idx, ping_host(&host))))
+                            .collect();
+                        handles
+                            .into_iter()
+                            .map(|h| h.join().unwrap_or((0, None)))
+                            .collect()
+                    });
+
+                    for (idx, lat) in latencies {
+                        if idx < tunnels.len() {
+                            tunnels[idx]["latency_ms"] = lat
+                                .map(serde_json::Value::from)
+                                .unwrap_or(serde_json::Value::Null);
+                        }
+                    }
+
                     let resp = serde_json::to_string(&tunnels).unwrap_or_default();
                     respond_json(stream, 200, &resp);
                     return;

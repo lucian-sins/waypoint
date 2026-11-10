@@ -23,7 +23,9 @@ export function parseWireguardConf(
 
     const [rawKey, ...valueParts] = line.split('=');
     const key = rawKey.trim().toLowerCase();
-    const value = valueParts.join('=').trim();
+    const rawValue = valueParts.join('=').trim();
+    // Strip trailing inline comments after '#' or ';'
+    const value = rawValue.split(/[#;]/)[0].trim();
 
     if (key === 'endpoint') {
       endpoint = value;

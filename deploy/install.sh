@@ -94,13 +94,53 @@ if [ -x /etc/init.d/pbr ]; then
 fi
 
 # 7. Stop Existing Service If Running
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || echo "")"
 if [ -f /etc/init.d/waypoint ]; then
     echo "[*] Stopping existing waypoint service..."
     /etc/init.d/waypoint stop 2>/dev/null || true
 fi
 
-# 8. Install Binaries and Service
+# 8. Acquire & Install Binaries and Service
+if [ ! -f "$SCRIPT_DIR/waypoint" ] || [ ! -f "$SCRIPT_DIR/vpnctl" ]; then
+    echo "[*] Local binaries not found in script directory. Downloading precompiled package for $ARCH from GitHub..."
+    PKG_NAME=""
+    case "$ARCH" in
+        mips) PKG_NAME="waypoint-openwrt-mips" ;;
+        mipsel) PKG_NAME="waypoint-openwrt-mipsel" ;;
+        aarch64|arm64) PKG_NAME="waypoint-openwrt-aarch64" ;;
+        armv7*) PKG_NAME="waypoint-openwrt-armv7" ;;
+        arm*|armv6*) PKG_NAME="waypoint-openwrt-armv6" ;;
+        x86_64|amd64) PKG_NAME="waypoint-openwrt-x86_64" ;;
+        *)
+            echo "[-] Error: Unsupported architecture: $ARCH"
+            exit 1
+            ;;
+    esac
+
+    TMP_DIR="/tmp/waypoint_pkg_$$"
+    mkdir -p "$TMP_DIR"
+    TAR_URL="https://github.com/lucian-sins/waypoint/releases/latest/download/${PKG_NAME}.tar.gz"
+    echo "[*] Fetching ${TAR_URL}..."
+
+    FETCHED="false"
+    if command -v curl >/dev/null 2>&1; then
+        curl -sSL "$TAR_URL" -o "$TMP_DIR/pkg.tar.gz" && FETCHED="true"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO "$TMP_DIR/pkg.tar.gz" "$TAR_URL" && FETCHED="true"
+    elif command -v uclient-fetch >/dev/null 2>&1; then
+        uclient-fetch -q -O "$TMP_DIR/pkg.tar.gz" "$TAR_URL" && FETCHED="true"
+    fi
+
+    if [ "$FETCHED" != "true" ] || [ ! -s "$TMP_DIR/pkg.tar.gz" ]; then
+        echo "[-] Error: Failed to download release archive for $ARCH."
+        rm -rf "$TMP_DIR"
+        exit 1
+    fi
+
+    tar -xzf "$TMP_DIR/pkg.tar.gz" -C "$TMP_DIR"
+    SCRIPT_DIR="$TMP_DIR/$PKG_NAME"
+fi
+
 echo "[*] Installing waypoint daemon to /usr/bin/waypoint..."
 cp "$SCRIPT_DIR/waypoint" /usr/bin/waypoint
 chmod +x /usr/bin/waypoint
@@ -112,6 +152,9 @@ chmod +x /usr/sbin/vpnctl
 echo "[*] Installing init service to /etc/init.d/waypoint..."
 cp "$SCRIPT_DIR/waypoint.init" /etc/init.d/waypoint
 chmod +x /etc/init.d/waypoint
+
+# Clean up temporary download directory if used
+[ -d "/tmp/waypoint_pkg_$$" ] && rm -rf "/tmp/waypoint_pkg_$$"
 
 # 9. Detect Network Environment & Host Info
 ROUTER_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}')

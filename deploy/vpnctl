@@ -118,10 +118,10 @@ cmd_devices() {
     nlbw -c json -g ip 2>/dev/null | jsonfilter -e '@.data[*]' 2>/dev/null | tr -d '[],\x22' | awk '{print $1, $3, $5}' > "$TMP_TRAFFIC" 2>/dev/null || true
   elif [ -f /proc/net/nf_conntrack ]; then
     awk '
-      /src=192\.168\./ {
+      $0 ~ /src=(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/ {
         ip=""; rx=0; tx=0;
         for (i=1; i<=NF; i++) {
-          if ($i ~ /^src=192\.168\./ && ip=="") { ip=substr($i, 5); }
+          if ($i ~ /^src=(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/ && ip=="") { ip=substr($i, 5); }
           else if ($i ~ /^bytes=/ && tx==0) { tx=substr($i, 7)+0; }
           else if ($i ~ /^bytes=/ && tx>0) { rx=substr($i, 7)+0; }
         }
@@ -615,6 +615,11 @@ cmd_tunnel() {
   else
     TUNNEL_ID="$ACTION"
     ACT="$ARG2"
+  fi
+
+  if [ -z "$TUNNEL_ID" ]; then
+    echo "Error: Tunnel ID is required" >&2
+    exit 1
   fi
 
   if [ "$ACT" = "up" ]; then
