@@ -215,18 +215,47 @@ fn save_settings(path: &str, settings: &AppSettings) -> Result<(), String> {
     fs::write(path, json).map_err(|e| e.to_string())
 }
 
-fn exec_vpnctl(state: &AppState, args: &[&str]) -> Result<String, String> {
-    let cmd_str = format!("/usr/sbin/vpnctl {}", args.join(" "));
+fn get_vpnctl_path() -> String {
+    env::var("WAYPOINT_VPNCTL").unwrap_or_else(|_| "/usr/sbin/vpnctl".to_string())
+}
+
+fn exec_vpnctl_internal(state: &AppState, args: &[&str], input: Option<&str>) -> Result<String, String> {
+    let bin = get_vpnctl_path();
+    let cmd_str = format!("{} {}", bin, args.join(" "));
     let start = Instant::now();
 
-    let output = Command::new("/usr/sbin/vpnctl")
-        .args(args)
-        .output()
-        .map_err(|e| {
-            let err_msg = format!("Failed to execute /usr/sbin/vpnctl: {}", e);
+    let output = if let Some(stdin_data) = input {
+        let mut child = Command::new(&bin)
+            .args(args)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| {
+                let err_msg = format!("Failed to spawn {}: {}", bin, e);
+                app_log(state, "ERROR", &err_msg);
+                err_msg
+            })?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(stdin_data.as_bytes());
+        }
+
+        child.wait_with_output().map_err(|e| {
+            let err_msg = format!("Failed to wait for {}: {}", bin, e);
             app_log(state, "ERROR", &err_msg);
             err_msg
-        })?;
+        })?
+    } else {
+        Command::new(&bin)
+            .args(args)
+            .output()
+            .map_err(|e| {
+                let err_msg = format!("Failed to execute {}: {}", bin, e);
+                app_log(state, "ERROR", &err_msg);
+                err_msg
+            })?
+    };
 
     let elapsed = start.elapsed().as_millis();
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -234,7 +263,7 @@ fn exec_vpnctl(state: &AppState, args: &[&str]) -> Result<String, String> {
 
     if !output.status.success() {
         let err = if stderr.is_empty() {
-            stdout.clone()
+            stdout
         } else {
             stderr
         };
@@ -254,44 +283,12 @@ fn exec_vpnctl(state: &AppState, args: &[&str]) -> Result<String, String> {
     Ok(stdout)
 }
 
+fn exec_vpnctl(state: &AppState, args: &[&str]) -> Result<String, String> {
+    exec_vpnctl_internal(state, args, None)
+}
+
 fn exec_vpnctl_with_stdin(state: &AppState, args: &[&str], input: &str) -> Result<String, String> {
-    let cmd_str = format!("/usr/sbin/vpnctl {}", args.join(" "));
-    let start = Instant::now();
-
-    let mut child = Command::new("/usr/sbin/vpnctl")
-        .args(args)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .map_err(|e| {
-            let err_msg = format!("Failed to spawn /usr/sbin/vpnctl: {}", e);
-            app_log(state, "ERROR", &err_msg);
-            err_msg
-        })?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        let _ = stdin.write_all(input.as_bytes());
-    }
-
-    let output = child.wait_with_output().map_err(|e| {
-        let err_msg = format!("Failed to wait for /usr/sbin/vpnctl: {}", e);
-        app_log(state, "ERROR", &err_msg);
-        err_msg
-    })?;
-
-    let elapsed = start.elapsed().as_millis();
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-
-    if !output.status.success() {
-        let err = if stderr.is_empty() { stdout } else { stderr };
-        app_log(state, "ERROR", &format!("{} failed ({}ms): {}", cmd_str, elapsed, err));
-        return Err(err);
-    }
-
-    app_log(state, "INFO", &format!("{} completed in {}ms", cmd_str, elapsed));
-    Ok(stdout)
+    exec_vpnctl_internal(state, args, Some(input))
 }
 
 #[derive(serde::Deserialize)]
@@ -430,6 +427,9 @@ fn respond_json(stream: TcpStream, status: u16, json: &str) {
 }
 
 fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(10)));
+
     let mut reader = BufReader::new(&stream);
     let mut request_line = String::new();
     if reader.read_line(&mut request_line).is_err() || request_line.is_empty() {
@@ -456,10 +456,16 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
 
     // Read headers to determine Content-Length if POST/PUT/PATCH
     let mut content_length = 0;
+    let mut header_count = 0;
     loop {
         let mut line = String::new();
         if reader.read_line(&mut line).is_err() || line.trim().is_empty() {
             break;
+        }
+        header_count += 1;
+        if header_count > 100 {
+            respond_json(stream, 400, r#"{"error":"Too many request headers"}"#);
+            return;
         }
         let lower = line.to_lowercase();
         if lower.starts_with("content-length:") {
@@ -469,10 +475,20 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
         }
     }
 
+    // Guard against excessive payload size to prevent OOM on low-memory router
+    const MAX_BODY_SIZE: usize = 2 * 1024 * 1024; // 2 MB
+    if content_length > MAX_BODY_SIZE {
+        respond_json(stream, 413, r#"{"error":"Payload too large (max 2MB)"}"#);
+        return;
+    }
+
     // Read body
     let mut body = vec![0u8; content_length];
     if content_length > 0 {
-        let _ = reader.read_exact(&mut body);
+        if reader.read_exact(&mut body).is_err() {
+            respond_json(stream, 400, r#"{"error":"Incomplete request body"}"#);
+            return;
+        }
     }
     let body_str = String::from_utf8_lossy(&body);
 
@@ -508,13 +524,17 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
         // GET /api/system/info
         if method == "GET" && path == "/api/system/info" {
             let uptime = fs::read_to_string("/proc/uptime").unwrap_or_default();
+            let model = fs::read_to_string("/tmp/sysinfo/model")
+                .or_else(|_| fs::read_to_string("/proc/device-tree/model"))
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|_| "Generic OpenWrt Router".to_string());
             let resp = serde_json::json!({
                 "mode": "native",
                 "daemon": "waypoint",
                 "version": "0.1.0",
-                "arch": "mipsel-unknown-linux-musl",
-                "target": "TP-Link ER605 v2 (MT7621)",
-                "ipc": "localhost (/usr/sbin/vpnctl)",
+                "arch": std::env::consts::ARCH,
+                "target": model,
+                "ipc": format!("localhost ({})", get_vpnctl_path()),
                 "port": 8443,
                 "uptime_raw": uptime.trim(),
                 "status": "active"

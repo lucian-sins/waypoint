@@ -41,3 +41,4 @@ Thumbs.db
 # Agent / Workspace internals
 .agent/
 .gemini/
+.serena/

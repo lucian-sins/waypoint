@@ -6,6 +6,7 @@
 # ==============================================================================
 
 set -e
+trap 'rm -f /tmp/vpnctl_*.$$ 2>/dev/null || true' EXIT INT TERM
 
 # ------------------------------------------------------------------------------
 # 1. STATUS
@@ -421,6 +422,18 @@ cmd_assign() {
     exit 1
   fi
 
+  # Validate IPv4 format
+  if ! echo "$IP" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}$'; then
+    echo "Error: Invalid IP address format: $IP" >&2
+    exit 1
+  fi
+
+  # Validate tunnel name format
+  if ! echo "$TUNNEL" | grep -qE '^[a-zA-Z0-9_-]+$'; then
+    echo "Error: Invalid tunnel name: $TUNNEL" >&2
+    exit 1
+  fi
+
   SAFE_IP=$(echo "$IP" | tr '.' '_')
   RULE_NAME="dev_${SAFE_IP}"
 
@@ -719,6 +732,13 @@ cmd_app_set() {
   ID=$(echo "$ID" | sed 's/[^a-zA-Z0-9_]/_/g' | tr 'A-Z' 'a-z')
   [ "${ID#app_}" = "$ID" ] && ID="app_$ID"
 
+  # Validate target device
+  if [ "$TARGET_DEV" != "all" ] && [ -n "$TARGET_DEV" ]; then
+    if ! echo "$TARGET_DEV" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?$'; then
+      TARGET_DEV="all"
+    fi
+  fi
+
   uci -q set pbr."$ID"=policy
   uci -q set pbr."$ID".name="${NAME:-$ID}"
   uci -q set pbr."$ID".interface="$TUNNEL"
@@ -731,7 +751,7 @@ cmd_app_set() {
 
   uci -q delete pbr."$ID".dest_addr 2>/dev/null || true
   for d in $DOMAINS; do
-    d_clean=$(echo "$d" | tr -d ' \r\t,' | tr 'A-Z' 'a-z')
+    d_clean=$(echo "$d" | tr -d ' \r\t,' | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9.-]//g')
     [ -n "$d_clean" ] && uci -q add_list pbr."$ID".dest_addr="$d_clean"
   done
 
