@@ -1,0 +1,5 @@
+# Ensure shell scripts and OpenWrt companions always retain Unix LF line endings
+*.sh text eol=lf
+deploy/* text eol=lf
+deploy/vpnctl text eol=lf
+deploy/waypoint.init text eol=lf
