@@ -84,7 +84,11 @@ if ! uci -q get pbr.config >/dev/null 2>&1; then
 fi
 uci -q set pbr.config.enabled='1'
 uci -q set pbr.config.strict_enforcement='1'
-uci -q set pbr.config.resolver_set='none'
+if command -v nft >/dev/null 2>&1 && dnsmasq --version 2>/dev/null | grep -qw 'nftset'; then
+    uci -q set pbr.config.resolver_set='dnsmasq.nftset'
+else
+    uci -q set pbr.config.resolver_set='none'
+fi
 uci commit pbr
 
 if [ -x /etc/init.d/pbr ]; then

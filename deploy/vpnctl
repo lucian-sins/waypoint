@@ -451,9 +451,14 @@ cmd_assign() {
     uci -q set pbr."$RULE_NAME".enabled='1'
   fi
 
-  # Ensure resolver_set is none so pbr reload does not produce unsupported resolver warnings
-  if [ "$(uci -q get pbr.config.resolver_set)" != "none" ]; then
-    uci -q set pbr.config.resolver_set='none'
+  # Ensure resolver_set is dnsmasq.nftset (or none if unsupported) so domain policies are dynamically populated
+  if command -v nft >/dev/null 2>&1 && dnsmasq --version 2>/dev/null | grep -qw 'nftset'; then
+    TARGET_RESOLVER="dnsmasq.nftset"
+  else
+    TARGET_RESOLVER="none"
+  fi
+  if [ "$(uci -q get pbr.config.resolver_set)" != "$TARGET_RESOLVER" ]; then
+    uci -q set pbr.config.resolver_set="$TARGET_RESOLVER"
   fi
 
   uci commit pbr
@@ -761,6 +766,17 @@ cmd_app_set() {
   done
 
   uci -q set pbr."$ID".enabled='1'
+
+  # Ensure resolver_set is dnsmasq.nftset (or none if unsupported) so domain policies are dynamically populated
+  if command -v nft >/dev/null 2>&1 && dnsmasq --version 2>/dev/null | grep -qw 'nftset'; then
+    TARGET_RESOLVER="dnsmasq.nftset"
+  else
+    TARGET_RESOLVER="none"
+  fi
+  if [ "$(uci -q get pbr.config.resolver_set)" != "$TARGET_RESOLVER" ]; then
+    uci -q set pbr.config.resolver_set="$TARGET_RESOLVER"
+  fi
+
   uci commit pbr
 
   /etc/init.d/pbr reload >/dev/null 2>&1 || true
