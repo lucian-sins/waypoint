@@ -2,8 +2,8 @@ pub fn get_asset(path: &str) -> Option<(&'static [u8], &'static str)> {
     let clean = path.trim_start_matches('/');
     match clean {
         "" | "index.html" => get_index(),
-        "assets/index-BcRbOR7r.css" => Some((include_bytes!(r"../../../dist_static/assets/index-BcRbOR7r.css"), "text/css; charset=utf-8")),
-        "assets/index-PTJcOc0Q.js" => Some((include_bytes!(r"../../../dist_static/assets/index-PTJcOc0Q.js"), "application/javascript; charset=utf-8")),
+        "assets/index-DQLWv_fQ.css" => Some((include_bytes!(r"../../../dist_static/assets/index-DQLWv_fQ.css"), "text/css; charset=utf-8")),
+        "assets/index-5C9oXIcC.js" => Some((include_bytes!(r"../../../dist_static/assets/index-5C9oXIcC.js"), "application/javascript; charset=utf-8")),
         "favicon.svg" => Some((include_bytes!(r"../../../dist_static/favicon.svg"), "image/svg+xml")),
         "icon.svg" => Some((include_bytes!(r"../../../dist_static/icon.svg"), "image/svg+xml")),
         "manifest.webmanifest" => Some((include_bytes!(r"../../../dist_static/manifest.webmanifest"), "application/manifest+json")),

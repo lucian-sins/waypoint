@@ -30,6 +30,7 @@ struct AppState {
     ttl: Duration,
     settings_file: String,
     log_file: String,
+    vpnctl_lock: Mutex<()>,
 }
 
 fn get_log_time() -> String {
@@ -220,6 +221,8 @@ fn get_vpnctl_path() -> String {
 }
 
 fn exec_vpnctl_internal(state: &AppState, args: &[&str], input: Option<&str>) -> Result<String, String> {
+    // Strictly serialize all vpnctl invocations to avoid procd/UCI lock collisions
+    let _lock = state.vpnctl_lock.lock().unwrap_or_else(|e| e.into_inner());
     let bin = get_vpnctl_path();
     let cmd_str = format!("{} {}", bin, args.join(" "));
     let start = Instant::now();
@@ -589,6 +592,46 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
                         "error": err
                     });
                     respond_json(stream, 500, &err_json.to_string());
+                }
+            }
+            return;
+        }
+
+        // GET /api/dns/status
+        if method == "GET" && path == "/api/dns/status" {
+            let res = exec_vpnctl(&state, &["dns", "status"])
+                .unwrap_or_else(|e| format!(r#"{{"error":"{}"}}"#, e));
+            respond_json(stream, 200, &res);
+            return;
+        }
+
+        // POST /api/dns/optimize-adguard
+        if method == "POST" && path == "/api/dns/optimize-adguard" {
+            app_log(&state, "INFO", "Optimizing DNS architecture for AdGuard Home chaining (port 54)...");
+            match exec_vpnctl(&state, &["dns", "optimize_adguard"]) {
+                Ok(res) => {
+                    app_log(&state, "INFO", "✅ AdGuard Home chaining optimized successfully");
+                    respond_json(stream, 200, &res);
+                }
+                Err(e) => {
+                    app_log(&state, "ERROR", &format!("❌ Failed to optimize AdGuard: {}", e));
+                    respond_json(stream, 500, &format!(r#"{{"error":"{}"}}"#, e));
+                }
+            }
+            return;
+        }
+
+        // POST /api/dns/revert
+        if method == "POST" && path == "/api/dns/revert" {
+            app_log(&state, "INFO", "Reverting DNS architecture to standard port 53...");
+            match exec_vpnctl(&state, &["dns", "revert_default"]) {
+                Ok(res) => {
+                    app_log(&state, "INFO", "✅ DNS reverted to standard port 53 successfully");
+                    respond_json(stream, 200, &res);
+                }
+                Err(e) => {
+                    app_log(&state, "ERROR", &format!("❌ Failed to revert DNS: {}", e));
+                    respond_json(stream, 500, &format!(r#"{{"error":"{}"}}"#, e));
                 }
             }
             return;
@@ -1401,6 +1444,7 @@ fn main() {
         ttl: Duration::from_millis(2500),
         settings_file,
         log_file: "/var/log/waypoint.log".to_string(),
+        vpnctl_lock: Mutex::new(()),
     });
 
     app_log(
@@ -1410,14 +1454,19 @@ fn main() {
     );
 
     // Background Self-Healing Watchdog:
-    // Continuously monitors kernel IP forwarding (/proc/sys/net/ipv4/ip_forward).
-    // If PBR or tunnel reload deadlocks drop forwarding to 0, it instantaneously restores it
-    // and invokes vpnctl recover to clear stale locks and restore firewall forward chains.
+    // 1. Continuously monitors kernel IP forwarding (/proc/sys/net/ipv4/ip_forward).
+    //    If PBR or tunnel reload deadlocks drop forwarding to 0, it instantaneously restores it
+    //    and invokes vpnctl recover to clear stale locks and restore firewall forward chains.
+    // 2. Monitors chained DNS health (AdGuard Home on 53 -> dnsmasq on 54).
+    //    If dnsmasq is on port 54 and AdGuard Home is stopped/uninstalled, it auto-heals dnsmasq
+    //    back to standard port 53 to prevent client DNS blackholing.
     let watchdog_state = Arc::clone(&state);
     thread::spawn(move || {
+        let mut dns_ticks: u32 = 0;
         loop {
             thread::sleep(Duration::from_secs(20));
 
+            // Check 1: Kernel IPv4 Packet Forwarding
             let forward_path = Path::new("/proc/sys/net/ipv4/ip_forward");
             if forward_path.exists() {
                 if let Ok(val) = fs::read_to_string(forward_path) {
@@ -1447,6 +1496,23 @@ fn main() {
                                     &format!("⚠️ Watchdog auto-recovery execution error: {}", err),
                                 );
                             }
+                        }
+                    }
+                }
+            }
+
+            // Check 2: DNS Chained Architecture Health (Runs every ~60s)
+            dns_ticks = (dns_ticks + 1) % 3;
+            if dns_ticks == 0 {
+                if let Ok(dns_status) = exec_vpnctl(&watchdog_state, &["dns", "status"]) {
+                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&dns_status) {
+                        if val.get("mode").and_then(|m| m.as_str()) == Some("degraded") {
+                            app_log(
+                                &watchdog_state,
+                                "WARN",
+                                "⚠️ Watchdog detected degraded DNS (dnsmasq on port 54, but AdGuard Home stopped)! Auto-healing DNS to port 53...",
+                            );
+                            let _ = exec_vpnctl(&watchdog_state, &["recover", "watchdog_dns"]);
                         }
                     }
                 }

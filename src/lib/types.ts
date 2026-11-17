@@ -131,3 +131,18 @@ export interface SslStatus {
   web_port?: number;
   ssl_enabled?: boolean;
 }
+
+export interface DnsPipelineStatus {
+  installed: boolean;
+  binary?: string;
+  config?: string;
+  running: boolean;
+  dnsmasq_port: string;
+  port53_active: boolean;
+  port54_active: boolean;
+  mode: 'chained' | 'standard' | 'degraded' | 'conflict' | 'chained_pending' | 'unknown';
+  healthy: boolean;
+  description: string;
+  upstream_configured: boolean;
+}
+

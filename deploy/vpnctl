@@ -1098,7 +1098,181 @@ EOF
 }
 
 # ------------------------------------------------------------------------------
-# 15. SELF-HEALING & EMERGENCY FORWARDING RECOVERY
+# 15. DNS PIPELINE & ADGUARD HOME INTEGRATION
+# ------------------------------------------------------------------------------
+cmd_dns() {
+  ACTION="${1:-status}"
+  case "$ACTION" in
+    status)
+      # 1. Detect AdGuard binary
+      AG_BIN=""
+      for p in /usr/bin/AdGuardHome /usr/sbin/AdGuardHome /opt/AdGuardHome/AdGuardHome /etc/AdGuardHome/AdGuardHome /usr/local/bin/AdGuardHome; do
+        if [ -x "$p" ]; then AG_BIN="$p"; break; fi
+      done
+      if [ -z "$AG_BIN" ] && command -v AdGuardHome >/dev/null 2>&1; then
+        AG_BIN=$(command -v AdGuardHome)
+      fi
+
+      AG_INSTALLED="false"
+      [ -n "$AG_BIN" ] && AG_INSTALLED="true"
+
+      # 2. Detect if AdGuard is running
+      AG_RUNNING="false"
+      if pgrep -f "AdGuardHome" >/dev/null 2>&1; then
+        AG_RUNNING="true"
+      fi
+
+      # 3. Detect config file
+      AG_CONF=""
+      for f in /etc/adguardhome.yaml /etc/AdGuardHome/AdGuardHome.yaml /etc/AdGuardHome.yaml /opt/AdGuardHome/AdGuardHome.yaml /var/etc/adguardhome.yaml; do
+        if [ -f "$f" ]; then AG_CONF="$f"; break; fi
+      done
+
+      # 4. Check if upstream 127.0.0.1:54 is configured in yaml
+      UPSTREAM_CONFIGURED="false"
+      if [ -n "$AG_CONF" ] && grep -q -E "127\.0\.0\.1:54" "$AG_CONF" 2>/dev/null; then
+        UPSTREAM_CONFIGURED="true"
+      fi
+
+      # 5. Check dnsmasq port
+      DNSMASQ_PORT=$(uci -q get dhcp.@dnsmasq[0].port || echo "53")
+      [ -z "$DNSMASQ_PORT" ] && DNSMASQ_PORT="53"
+
+      # 6. Check listening ports
+      P53="false"
+      if netstat -tuln 2>/dev/null | grep -E ':(53)\b' >/dev/null 2>&1; then
+        P53="true"
+      fi
+      P54="false"
+      if netstat -tuln 2>/dev/null | grep -E ':(54)\b' >/dev/null 2>&1; then
+        P54="true"
+      fi
+
+      # 7. Evaluate mode & health
+      MODE="standard"
+      HEALTHY="true"
+      DESC="Standard OpenWrt dnsmasq resolving directly on port 53"
+
+      if [ "$DNSMASQ_PORT" = "54" ]; then
+        if [ "$AG_RUNNING" = "true" ] && [ "$P53" = "true" ] && [ "$P54" = "true" ]; then
+          MODE="chained"
+          HEALTHY="true"
+          DESC="Chained: AdGuard Home (:53) -> dnsmasq (:54) -> PBR (Active)"
+        elif [ "$AG_RUNNING" = "false" ]; then
+          MODE="degraded"
+          HEALTHY="false"
+          DESC="Degraded: dnsmasq is on port 54 but AdGuard Home is stopped (DNS at risk)"
+        else
+          MODE="chained_pending"
+          HEALTHY="true"
+          DESC="dnsmasq configured on port 54, awaiting AdGuard Home startup"
+        fi
+      else
+        if [ "$AG_RUNNING" = "true" ]; then
+          MODE="conflict"
+          HEALTHY="false"
+          DESC="Potential conflict: AdGuard Home is running while dnsmasq is also on default port"
+        fi
+      fi
+
+      cat <<EOF
+{
+  "installed": $AG_INSTALLED,
+  "binary": "$AG_BIN",
+  "config": "$AG_CONF",
+  "running": $AG_RUNNING,
+  "dnsmasq_port": "$DNSMASQ_PORT",
+  "port53_active": $P53,
+  "port54_active": $P54,
+  "mode": "$MODE",
+  "healthy": $HEALTHY,
+  "description": "$DESC",
+  "upstream_configured": $UPSTREAM_CONFIGURED
+}
+EOF
+      ;;
+
+    optimize_adguard)
+      # Shift dnsmasq to port 54 and allow local service queries
+      uci -q set dhcp.@dnsmasq[0].port='54'
+      uci -q set dhcp.@dnsmasq[0].localservice='0'
+      uci commit dhcp 2>/dev/null || true
+      [ -x /etc/init.d/dnsmasq ] && /etc/init.d/dnsmasq restart >/dev/null 2>&1 || true
+
+      # If AdGuard YAML exists, ensure upstream_dns points to 127.0.0.1:54
+      AG_CONF=""
+      for f in /etc/adguardhome.yaml /etc/AdGuardHome/AdGuardHome.yaml /etc/AdGuardHome.yaml /opt/AdGuardHome/AdGuardHome.yaml /var/etc/adguardhome.yaml; do
+        if [ -f "$f" ]; then AG_CONF="$f"; break; fi
+      done
+
+      UPDATED_CONF="false"
+      if [ -n "$AG_CONF" ] && [ -f "$AG_CONF" ]; then
+        if ! grep -q -E "127\.0\.0\.1:54" "$AG_CONF"; then
+          awk '
+            /^[[:space:]]*upstream_dns:/ {
+              print $0
+              print "    - 127.0.0.1:54"
+              next
+            }
+            { print }
+          ' "$AG_CONF" > "${AG_CONF}.tmp" && mv "${AG_CONF}.tmp" "$AG_CONF"
+          UPDATED_CONF="true"
+        fi
+      fi
+
+      # Restart AdGuard Home service if present
+      if [ -x /etc/init.d/adguardhome ]; then
+        /etc/init.d/adguardhome enable >/dev/null 2>&1 || true
+        /etc/init.d/adguardhome restart >/dev/null 2>&1 || true
+      elif [ -x /etc/init.d/AdGuardHome ]; then
+        /etc/init.d/AdGuardHome enable >/dev/null 2>&1 || true
+        /etc/init.d/AdGuardHome restart >/dev/null 2>&1 || true
+      fi
+
+      cat <<EOF
+{
+  "success": true,
+  "mode": "chained",
+  "dnsmasq_port": "54",
+  "adguard_config_updated": $UPDATED_CONF,
+  "message": "dnsmasq shifted to port 54 and AdGuard Home upstream configured for 127.0.0.1:54"
+}
+EOF
+      ;;
+
+    revert_default)
+      # Revert dnsmasq to standard port 53
+      uci -q delete dhcp.@dnsmasq[0].port
+      uci -q set dhcp.@dnsmasq[0].localservice='1'
+      uci commit dhcp 2>/dev/null || true
+      [ -x /etc/init.d/dnsmasq ] && /etc/init.d/dnsmasq restart >/dev/null 2>&1 || true
+
+      # If AdGuard was running on port 53, stop it to avoid port collision
+      if [ -x /etc/init.d/adguardhome ]; then
+        /etc/init.d/adguardhome stop >/dev/null 2>&1 || true
+      elif [ -x /etc/init.d/AdGuardHome ]; then
+        /etc/init.d/AdGuardHome stop >/dev/null 2>&1 || true
+      fi
+
+      cat <<EOF
+{
+  "success": true,
+  "mode": "standard",
+  "dnsmasq_port": "53",
+  "message": "dnsmasq restored to standard port 53"
+}
+EOF
+      ;;
+
+    *)
+      echo '{"error": "Unknown dns action. Use status, optimize_adguard, or revert_default"}'
+      return 1
+      ;;
+  esac
+}
+
+# ------------------------------------------------------------------------------
+# 16. SELF-HEALING & EMERGENCY FORWARDING RECOVERY
 # ------------------------------------------------------------------------------
 cmd_recover() {
   REASON="${1:-manual}"
@@ -1125,6 +1299,21 @@ cmd_recover() {
     uci -q set pbr."$sec".enabled='1'
   done
   uci commit pbr 2>/dev/null || true
+
+  # 3.2 DNS Auto-Recovery: if dnsmasq is on port 54 but AdGuard is dead / port 53 down, revert dnsmasq to 53
+  DNS_PORT=$(uci -q get dhcp.@dnsmasq[0].port || echo "53")
+  if [ "$DNS_PORT" = "54" ]; then
+    AG_ALIVE="false"
+    if pgrep -f "AdGuardHome" >/dev/null 2>&1; then
+      AG_ALIVE="true"
+    fi
+    if [ "$AG_ALIVE" != "true" ] || ! netstat -tuln 2>/dev/null | grep -E ':(53)\b' >/dev/null 2>&1; then
+      uci -q delete dhcp.@dnsmasq[0].port
+      uci -q set dhcp.@dnsmasq[0].localservice='1'
+      uci commit dhcp 2>/dev/null || true
+      [ -x /etc/init.d/dnsmasq ] && /etc/init.d/dnsmasq restart >/dev/null 2>&1 || true
+    fi
+  fi
 
   # 4. Force kernel IP packet forwarding on immediately
   sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
@@ -1175,6 +1364,10 @@ case "$1" in
     shift
     cmd_recover "$@"
     ;;
+  dns)
+    shift
+    cmd_dns "$@"
+    ;;
   ssl)
     shift
     cmd_ssl "$@"
@@ -1224,7 +1417,7 @@ case "$1" in
     ;;
   *)
     echo "vpnctl: OpenWrt WireGuard & Policy-Based Routing CLI"
-    echo "Commands: status, recover, telemetry, strict, devices, tunnels, assign, tunnel, apps, app_set, app_delete, app_toggle, ping, discover"
+    echo "Commands: status, recover, dns, telemetry, strict, devices, tunnels, assign, tunnel, apps, app_set, app_delete, app_toggle, ping, discover"
     exit 1
     ;;
 esac

@@ -29,7 +29,7 @@ import {
   CheckCircle2,
   Globe,
 } from 'lucide-react';
-import type { AppSettings, Tunnel, Device, AddTunnelPayload, SslStatus } from '../lib/types';
+import type { AppSettings, Tunnel, Device, AddTunnelPayload, SslStatus, DnsPipelineStatus } from '../lib/types';
 import { isValidCidr } from '../lib/cidr';
 import { parseWireguardConf } from '../lib/wireguardParser';
 import { getTunnelFlag } from '../lib/locations';
@@ -93,6 +93,68 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [certSuccess, setCertSuccess] = useState<string | null>(null);
   const [certError, setCertError] = useState<string | null>(null);
   const [togglingSsl, setTogglingSsl] = useState(false);
+
+  // DNS & AdGuard Home state
+  const [dnsStatus, setDnsStatus] = useState<DnsPipelineStatus | null>(null);
+  const [loadingDns, setLoadingDns] = useState(false);
+  const [optimizingDns, setOptimizingDns] = useState(false);
+  const [revertingDns, setRevertingDns] = useState(false);
+  const [dnsMessage, setDnsMessage] = useState<string | null>(null);
+
+  const fetchDnsStatus = async () => {
+    setLoadingDns(true);
+    try {
+      const res = await fetch('/api/dns/status');
+      if (res.ok) {
+        const data: DnsPipelineStatus = await res.json();
+        setDnsStatus(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch DNS status:', e);
+    } finally {
+      setLoadingDns(false);
+    }
+  };
+
+  const handleOptimizeAdguard = async () => {
+    setOptimizingDns(true);
+    setDnsMessage(null);
+    try {
+      const res = await fetch('/api/dns/optimize-adguard', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setDnsMessage('✅ dnsmasq shifted to port 54 and chained with AdGuard Home upstream!');
+        fetchDnsStatus();
+        fetchLogs();
+      } else {
+        setDnsMessage(`❌ Optimization error: ${data.error || 'Failed'}`);
+      }
+    } catch (e: any) {
+      setDnsMessage(`❌ Failed to communicate with router: ${e.message}`);
+    } finally {
+      setOptimizingDns(false);
+    }
+  };
+
+  const handleRevertDns = async () => {
+    setRevertingDns(true);
+    setDnsMessage(null);
+    try {
+      const res = await fetch('/api/dns/revert', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setDnsMessage('✅ dnsmasq restored to standard port 53.');
+        fetchDnsStatus();
+        fetchLogs();
+      } else {
+        setDnsMessage(`❌ Revert error: ${data.error || 'Failed'}`);
+      }
+    } catch (e: any) {
+      setDnsMessage(`❌ Failed to communicate with router: ${e.message}`);
+    } finally {
+      setRevertingDns(false);
+    }
+  };
 
   const fetchSslStatus = async () => {
     setLoadingSsl(true);
@@ -307,6 +369,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     if (isOpen && activeTab === 'router') {
       fetchLogs();
+      fetchDnsStatus();
     }
   }, [isOpen, activeTab]);
 
@@ -965,6 +1028,115 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>Run Recovery</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* AdGuard Home & DNS Pipeline Optimization Card */}
+              <div className="p-4 rounded-2xl bg-purple-500/5 dark:bg-purple-400/5 border border-purple-500/20 dark:border-purple-400/20 space-y-3 shadow-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                      <Shield className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h5 className="font-semibold text-neutral-900 dark:text-neutral-100 text-xs">
+                          AdGuard Home & DNS Architecture
+                        </h5>
+                        {dnsStatus?.mode === 'chained' && (
+                          <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold">
+                            ● Chained Pipeline Active
+                          </span>
+                        )}
+                        {dnsStatus?.mode === 'standard' && (
+                          <span className="text-[10px] font-mono bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 px-2 py-0.5 rounded-full font-semibold">
+                            ● Standard (Port 53)
+                          </span>
+                        )}
+                        {dnsStatus?.mode === 'degraded' && (
+                          <span className="text-[10px] font-mono bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20 px-2 py-0.5 rounded-full font-semibold">
+                            ⚠️ Degraded (AdGuard Stopped)
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                        Chain AdGuard Home (:53) with dnsmasq (:54) to combine network-wide ad blocking with OpenWrt PBR application routing.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={fetchDnsStatus}
+                    disabled={loadingDns}
+                    className="p-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+                    title="Refresh DNS pipeline status"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingDns ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1">
+                  <div className="p-2.5 rounded-xl bg-white/80 dark:bg-neutral-900/60 border border-black/[0.04] dark:border-white/[0.05]">
+                    <span className="text-neutral-400 block text-[10px]">dnsmasq Port</span>
+                    <span className="font-mono font-medium text-neutral-800 dark:text-neutral-200">
+                      {dnsStatus?.dnsmasq_port || '53'}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/80 dark:bg-neutral-900/60 border border-black/[0.04] dark:border-white/[0.05]">
+                    <span className="text-neutral-400 block text-[10px]">AdGuard Home</span>
+                    <span className={`font-mono font-medium ${dnsStatus?.running ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-600 dark:text-neutral-400'}`}>
+                      {dnsStatus?.running ? 'Running (:53)' : dnsStatus?.installed ? 'Installed (Stopped)' : 'Not Installed'}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/80 dark:bg-neutral-900/60 border border-black/[0.04] dark:border-white/[0.05]">
+                    <span className="text-neutral-400 block text-[10px]">PBR Domain Rules</span>
+                    <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
+                      {dnsStatus?.dnsmasq_port === '54' ? 'Active via :54' : 'Active via :53'}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/80 dark:bg-neutral-900/60 border border-black/[0.04] dark:border-white/[0.05]">
+                    <span className="text-neutral-400 block text-[10px]">Pipeline Health</span>
+                    <span className={`font-mono font-medium ${dnsStatus?.healthy ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      {dnsStatus?.healthy ? 'Healthy' : 'Needs Attention'}
+                    </span>
+                  </div>
+                </div>
+
+                {dnsMessage && (
+                  <div className="p-2 rounded-xl bg-neutral-200/60 dark:bg-neutral-800/80 text-[11px] font-mono text-neutral-800 dark:text-neutral-200">
+                    {dnsMessage}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleOptimizeAdguard}
+                    disabled={optimizingDns || dnsStatus?.mode === 'chained'}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {optimizingDns ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5" />
+                    )}
+                    <span>Optimize for AdGuard Home</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleRevertDns}
+                    disabled={revertingDns || (dnsStatus?.dnsmasq_port === '53' && !dnsStatus?.running)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {revertingDns ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    )}
+                    <span>Revert to Standard (Port 53)</span>
                   </button>
                 </div>
               </div>

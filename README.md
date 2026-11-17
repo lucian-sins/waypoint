@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: OpenWrt](https://img.shields.io/badge/Platform-OpenWrt%2021.02%20--%2025.x-teal.svg)](https://openwrt.org)
 [![Architecture: MIPS / ARM / x86_64](https://img.shields.io/badge/Arch-mipsel%20%7C%20aarch64%20%7C%20x86__64-orange.svg)](#)
-[![Runtime RAM: < 2MB](https://img.shields.io/badge/Memory-%3C%202%20MB%20RAM-success.svg)](#)
+[![Runtime RAM: < 1MB](https://img.shields.io/badge/Memory-%3C%201%20MB%20RAM-success.svg)](#)
 [![WireGuard: Native](https://img.shields.io/badge/WireGuard-Kernel%20Module-red.svg)](https://www.wireguard.com)
 
 > **Native OpenWrt WAN Policy & WireGuard Egress Dispatcher**  
@@ -13,9 +13,12 @@
 
 ## ⚡ Highlights
 
-* **Ultra-Lightweight Native Daemon**: Written in pure, safe Rust. Consumes **< 2 MB RAM** and **0% CPU** at idle. No Docker, no Node.js, and no external runtime required.
+* **Ultra-Lightweight Native Daemon**: Written in pure, safe Rust. Consumes **< 1 MB RAM** (measured **~892 kB VmRSS** on OpenWrt / ER605 v2 MIPS) and **0% CPU** at idle. No Docker, no Node.js, and no external runtime required.
 * **1-Tap Per-Device Routing**: Seamlessly dispatch individual LAN clients (phones, laptops, TVs, IoT devices) to direct WAN or encrypted multi-region WireGuard tunnels (`wgus`, `wges`, `wgjp`, etc.) without dropping other network connections.
+* **Serialized Mutex Command Queue**: Concurrency-safe execution pipeline ensuring simultaneous device policy switches, app rules, or telemetry calls never collide on OpenWrt's `uci` or `procd` locks.
+* **AdGuard Home & DNS Pipeline**: Seamless 1-click chaining of AdGuard Home (port 53) to `dnsmasq` (port 54). Enables network-wide ad blocking while preserving OpenWrt's native domain matching for PBR application routing, with automatic self-healing fallback to prevent DNS blackholes.
 * **Smart App & Domain Policies**: Direct streaming and domain traffic (e.g. Netflix, Crunchyroll, Disney+, Plex) through designated VPN tunnels automatically via OpenWrt Policy-Based Routing (`pbr`).
+* **Self-Healing Watchdog & Emergency Recovery**: Zero-overhead background thread that continuously monitors kernel packet forwarding (`net.ipv4.ip_forward`) and DNS health. Terminal command `/usr/sbin/fix_internet` restores connectivity instantly.
 * **Instant WireGuard `.conf` Import**: Drag-and-drop or paste standard `.conf` files to provision UCI network interfaces, peers, and firewall zones in seconds.
 * **Live Hardware Vendor Recognition**: Real-time IEEE OUI hardware MAC lookup and randomized MAC detection with 1-tap friendly rename suggestions.
 * **Strict Killswitch**: Hardware-enforced traffic dropping if a tunnel drops, preventing unencrypted IP or DNS leakage.
