@@ -463,6 +463,23 @@ cmd_assign() {
     uci -q set pbr."$RULE_NAME".enabled='1'
   fi
 
+  # Ensure Ignore Local Requests rule exists and is enabled so local DNS and LAN traffic are never hijacked into the tunnel
+  IGNORE_FOUND="false"
+  for sec in $(uci -q show pbr | grep -E "name='Ignore Local Requests'|interface='ignore'" | cut -d. -f2 | sort -u); do
+    uci -q set pbr."$sec".name='Ignore Local Requests'
+    uci -q set pbr."$sec".interface='ignore'
+    uci -q set pbr."$sec".dest_addr='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16'
+    uci -q set pbr."$sec".enabled='1'
+    IGNORE_FOUND="true"
+  done
+  if [ "$IGNORE_FOUND" != "true" ]; then
+    uci -q add pbr policy
+    uci -q set pbr.@policy[-1].name='Ignore Local Requests'
+    uci -q set pbr.@policy[-1].interface='ignore'
+    uci -q set pbr.@policy[-1].dest_addr='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16'
+    uci -q set pbr.@policy[-1].enabled='1'
+  fi
+
   # Ensure resolver_set is dnsmasq.nftset (or none if unsupported) so domain policies are dynamically populated
   if command -v nft >/dev/null 2>&1 && dnsmasq --version 2>/dev/null | grep -qw 'nftset'; then
     TARGET_RESOLVER="dnsmasq.nftset"
@@ -1099,6 +1116,14 @@ cmd_recover() {
 
   # 3. Disable strict enforcement in PBR to prevent killswitch forward drops
   uci -q set pbr.config.strict_enforcement='0'
+  
+  # 3.1 Ensure Ignore Local Requests rule exists and is enabled with full RFC1918 ranges
+  for sec in $(uci -q show pbr | grep -E "name='Ignore Local Requests'|interface='ignore'" | cut -d. -f2 | sort -u); do
+    uci -q set pbr."$sec".name='Ignore Local Requests'
+    uci -q set pbr."$sec".interface='ignore'
+    uci -q set pbr."$sec".dest_addr='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16'
+    uci -q set pbr."$sec".enabled='1'
+  done
   uci commit pbr 2>/dev/null || true
 
   # 4. Force kernel IP packet forwarding on immediately

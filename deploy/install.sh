@@ -91,6 +91,24 @@ if command -v nft >/dev/null 2>&1 && dnsmasq --version 2>/dev/null | grep -qw 'n
 else
     uci -q set pbr.config.resolver_set='none'
 fi
+
+# Ensure RFC1918 private subnets are never hijacked into VPN tunnels (Local Bypass Policy)
+IGNORE_FOUND="false"
+for sec in $(uci -q show pbr | grep -E "name='Ignore Local Requests'|interface='ignore'" | cut -d. -f2 | sort -u); do
+    uci -q set pbr."$sec".name='Ignore Local Requests'
+    uci -q set pbr."$sec".interface='ignore'
+    uci -q set pbr."$sec".dest_addr='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16'
+    uci -q set pbr."$sec".enabled='1'
+    IGNORE_FOUND="true"
+done
+if [ "$IGNORE_FOUND" != "true" ]; then
+    uci -q add pbr policy
+    uci -q set pbr.@policy[-1].name='Ignore Local Requests'
+    uci -q set pbr.@policy[-1].interface='ignore'
+    uci -q set pbr.@policy[-1].dest_addr='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16'
+    uci -q set pbr.@policy[-1].enabled='1'
+fi
+
 uci commit pbr
 
 # Ensure persistent kernel IP forwarding is active and immune to reload drops
