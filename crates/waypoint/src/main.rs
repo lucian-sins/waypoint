@@ -541,7 +541,7 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
             let resp = serde_json::json!({
                 "mode": "native",
                 "daemon": "waypoint",
-                "version": "0.1.0",
+                "version": "0.1.1",
                 "arch": std::env::consts::ARCH,
                 "target": model,
                 "ipc": format!("localhost ({})", get_vpnctl_path()),
