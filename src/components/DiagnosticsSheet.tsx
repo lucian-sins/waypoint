@@ -19,6 +19,26 @@ export const DiagnosticsSheet: React.FC<DiagnosticsSheetProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const [recoverMsg, setRecoverMsg] = useState<string | null>(null);
+
+  const handleRecover = async () => {
+    setRecovering(true);
+    setRecoverMsg(null);
+    try {
+      const res = await fetch('/api/system/recover', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setRecoverMsg('Gateway packet forwarding and locks successfully restored!');
+      } else {
+        setRecoverMsg(data.error || 'Recovery failed.');
+      }
+    } catch {
+      setRecoverMsg('Failed to contact gateway daemon.');
+    } finally {
+      setRecovering(false);
+    }
+  };
 
   const copyDiagnosticDump = () => {
     const payload = JSON.stringify(
@@ -72,6 +92,45 @@ export const DiagnosticsSheet: React.FC<DiagnosticsSheetProps> = ({
       {/* Expanded Content */}
       {isOpen && (
         <div className="p-5 pt-0 border-t border-black/[0.04] dark:border-white/[0.05] space-y-4 text-xs">
+          {/* Emergency Packet Forwarding Warning */}
+          {status?.router.ip_forward === false && (
+            <div className="mt-4 p-3.5 rounded-2xl bg-rose-500/10 border-2 border-rose-500/30 text-rose-700 dark:text-rose-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5 sm:mt-0" />
+                <div>
+                  <h4 className="font-semibold text-xs text-rose-900 dark:text-rose-100">
+                    Kernel Packet Forwarding is Disabled (net.ipv4.ip_forward = 0)
+                  </h4>
+                  <p className="text-[11px] text-rose-700 dark:text-rose-300">
+                    Router has WAN access but cannot forward packets for LAN/Wi-Fi devices.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleRecover}
+                disabled={recovering}
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition-colors shrink-0 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${recovering ? 'animate-spin' : ''}`} />
+                <span>{recovering ? 'Restoring...' : 'Self-Heal Gateway'}</span>
+              </button>
+            </div>
+          )}
+
+          {recoverMsg && (
+            <div className="mt-4 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 text-xs flex items-center justify-between gap-2">
+              <span>{recoverMsg}</span>
+              <button
+                type="button"
+                onClick={() => setRecoverMsg(null)}
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Quick Metrics Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
             <div className="p-3 rounded-2xl bg-neutral-100/70 dark:bg-neutral-800/60">
@@ -161,6 +220,17 @@ export const DiagnosticsSheet: React.FC<DiagnosticsSheetProps> = ({
           {/* Action Row */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t border-black/[0.04] dark:border-white/[0.05]">
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handleRecover}
+                disabled={recovering}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-medium transition-colors cursor-pointer touch-press disabled:opacity-50"
+                title="Clears deadlocked procd locks, ensures kernel packet forwarding is active, and resets fw4 forward chains"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-emerald-500 ${recovering ? 'animate-spin' : ''}`} />
+                <span>{recovering ? 'Healing...' : 'Self-Heal Gateway'}</span>
+              </button>
+
               {onOpenEgressInspector && (
                 <button
                   type="button"

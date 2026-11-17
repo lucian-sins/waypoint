@@ -7,6 +7,10 @@ STOP=10
 PROG=/usr/bin/waypoint
 
 start_service() {
+    # Ensure kernel IP forwarding is unconditionally enabled
+    sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+    echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true
+
     PORT=8443
     SSL_ENABLED="false"
     SETTINGS_FILE="/etc/waypoint/settings.json"
@@ -24,7 +28,8 @@ start_service() {
             rm -f /var/run/waypoint-stunnel.pid
         fi
         killall stunnel 2>/dev/null || true
-        stunnel "$SSL_DIR/stunnel.conf" 2>/dev/null || true
+        # CRITICAL: Close FD 1000 (1000>&-) so stunnel does NOT inherit rc.common's procd flock
+        stunnel "$SSL_DIR/stunnel.conf" 1000>&- 2>/dev/null || true
         DAEMON_PORT=8440
     else
         if [ -f /var/run/waypoint-stunnel.pid ]; then

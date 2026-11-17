@@ -83,13 +83,27 @@ if ! uci -q get pbr.config >/dev/null 2>&1; then
     uci -q set pbr.config=pbr
 fi
 uci -q set pbr.config.enabled='1'
-uci -q set pbr.config.strict_enforcement='1'
+# Safe default: strict_enforcement='0' prevents PBR from severing kernel forwarding (net.ipv4.ip_forward=0)
+# and flushing fw4 forward chains during multi-tunnel keepalive reloads.
+uci -q set pbr.config.strict_enforcement='0'
 if command -v nft >/dev/null 2>&1 && dnsmasq --version 2>/dev/null | grep -qw 'nftset'; then
     uci -q set pbr.config.resolver_set='dnsmasq.nftset'
 else
     uci -q set pbr.config.resolver_set='none'
 fi
 uci commit pbr
+
+# Ensure persistent kernel IP forwarding is active and immune to reload drops
+mkdir -p /etc/sysctl.d
+cat <<'EOF' > /etc/sysctl.d/99-waypoint.conf
+# WayPoint WRT: Ensure kernel IP packet forwarding is persistently enabled
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv4.conf.all.forwarding = 1
+EOF
+sysctl -p /etc/sysctl.d/99-waypoint.conf >/dev/null 2>&1 || true
+sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true
 
 if [ -x /etc/init.d/pbr ]; then
     /etc/init.d/pbr enable
@@ -153,9 +167,22 @@ echo "[*] Installing vpnctl companion to /usr/sbin/vpnctl..."
 cp "$SCRIPT_DIR/vpnctl" /usr/sbin/vpnctl
 chmod +x /usr/sbin/vpnctl
 
+# Create built-in recovery shortcut /usr/sbin/fix_internet
+ln -sf /usr/sbin/vpnctl /usr/sbin/fix_internet
+echo "[+] Emergency unstick & recovery tool registered at /usr/sbin/fix_internet"
+
 echo "[*] Installing init service to /etc/init.d/waypoint..."
 cp "$SCRIPT_DIR/waypoint.init" /etc/init.d/waypoint
 chmod +x /etc/init.d/waypoint
+
+# Preserve WayPoint config, sysctl settings, and recovery binaries across sysupgrades
+if [ -f /etc/sysupgrade.conf ]; then
+    for entry in "/etc/waypoint/" "/etc/sysctl.d/99-waypoint.conf" "/usr/sbin/fix_internet" "/usr/sbin/vpnctl"; do
+        if ! grep -qxF "$entry" /etc/sysupgrade.conf 2>/dev/null; then
+            echo "$entry" >> /etc/sysupgrade.conf
+        fi
+    done
+fi
 
 # Clean up temporary download directory if used
 [ -d "/tmp/waypoint_pkg_$$" ] && rm -rf "/tmp/waypoint_pkg_$$"

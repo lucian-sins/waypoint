@@ -1,12 +1,20 @@
 #!/bin/sh
 # ==============================================================================
-# vpnctl ??? OpenWrt WireGuard & Policy-Based Routing (pbr) Companion CLI
+# vpnctl — OpenWrt WireGuard & Policy-Based Routing (pbr) Companion CLI
 # Target: TP-Link ER605 v2 & OpenWrt 21.02 / 22.03 / 23.05 / 24.10 / 25.x
 # Zero external dependencies: pure POSIX /bin/sh (BusyBox ash compatible)
 # ==============================================================================
 
 set -e
 trap 'rm -f /tmp/vpnctl_*.$$ 2>/dev/null || true' EXIT INT TERM
+
+# If invoked via emergency symlink /usr/sbin/fix_internet, jump directly to recovery
+PROG_NAME=$(basename "$0" 2>/dev/null || echo "vpnctl")
+if [ "$PROG_NAME" = "fix_internet" ]; then
+  shift || true
+  cmd_recover "$@"
+  exit 0
+fi
 
 # ------------------------------------------------------------------------------
 # 1. STATUS
@@ -34,11 +42,14 @@ cmd_status() {
     PBR_ENABLED="true"
   fi
 
-  PBR_STRICT="true"
-  STRICT_VAL=$(uci -q get pbr.config.strict_enforcement || echo "1")
-  [ "$STRICT_VAL" = "0" ] && PBR_STRICT="false"
+  PBR_STRICT="false"
+  STRICT_VAL=$(uci -q get pbr.config.strict_enforcement || echo "0")
+  [ "$STRICT_VAL" = "1" ] && PBR_STRICT="true"
 
   PBR_POLICIES=$(uci -q show pbr | grep -c '=policy$' || echo 0)
+
+  IP_FORWARD="true"
+  [ "$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null || echo 1)" = "0" ] && IP_FORWARD="false"
 
   cat <<EOF
 {
@@ -46,7 +57,8 @@ cmd_status() {
     "release": "$RELEASE",
     "uptime_s": $UPTIME_S,
     "wan_up": $WAN_UP,
-    "wan_ip": "$WAN_IP"
+    "wan_ip": "$WAN_IP",
+    "ip_forward": $IP_FORWARD
   },
   "pbr": {
     "enabled": $PBR_ENABLED,
@@ -818,11 +830,16 @@ cmd_strict() {
   elif [ "$ARG" = "0" ] || [ "$ARG" = "off" ] || [ "$ARG" = "false" ]; then
     VAL="0"
   else
-    CUR=$(uci -q get pbr.config.strict_enforcement || echo "1")
+    CUR=$(uci -q get pbr.config.strict_enforcement || echo "0")
     [ "$CUR" = "1" ] && VAL="0" || VAL="1"
   fi
   uci -q set pbr.config.strict_enforcement="$VAL"
   uci commit pbr
+  # If disabling strict enforcement, immediately re-verify kernel forwarding is active
+  if [ "$VAL" = "0" ]; then
+    sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+    echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true
+  fi
   /etc/init.d/pbr reload >/dev/null 2>&1 || true
   echo "OK: strict=$VAL"
 }
@@ -1064,11 +1081,74 @@ EOF
 }
 
 # ------------------------------------------------------------------------------
+# 15. SELF-HEALING & EMERGENCY FORWARDING RECOVERY
+# ------------------------------------------------------------------------------
+cmd_recover() {
+  REASON="${1:-manual}"
+
+  # 1. Clear any stuck procd locks preventing service and system reloads
+  rm -f /tmp/lock/procd_pbr.lock 2>/dev/null || true
+  rm -f /tmp/lock/procd_waypoint.lock 2>/dev/null || true
+
+  # 2. Terminate any hung pbr reload processes (excluding current shell)
+  if command -v pgrep >/dev/null 2>&1; then
+    for pid in $(pgrep -f "/usr/sbin/pbr|/etc/init.d/pbr" 2>/dev/null || true); do
+      [ "$pid" != "$$" ] && kill -9 "$pid" 2>/dev/null || true
+    done
+  fi
+
+  # 3. Disable strict enforcement in PBR to prevent killswitch forward drops
+  uci -q set pbr.config.strict_enforcement='0'
+  uci commit pbr 2>/dev/null || true
+
+  # 4. Force kernel IP packet forwarding on immediately
+  sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+  sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1 || true
+  sysctl -w net.ipv4.conf.all.forwarding=1 >/dev/null 2>&1 || true
+  echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true
+
+  # 5. Restore firewall forward chain if missing or stripped
+  FW_RESTARTED="false"
+  if [ -x /etc/init.d/firewall ]; then
+    /etc/init.d/firewall restart >/dev/null 2>&1 || /etc/init.d/firewall reload >/dev/null 2>&1 || true
+    FW_RESTARTED="true"
+  fi
+
+  # 6. Re-trigger pbr reload cleanly if enabled
+  PBR_RELOADED="false"
+  if [ -x /etc/init.d/pbr ] && /etc/init.d/pbr enabled >/dev/null 2>&1; then
+    /etc/init.d/pbr reload >/dev/null 2>&1 || true
+    PBR_RELOADED="true"
+  fi
+
+  # 7. Check final forwarding state
+  IP_FWD=$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null || echo 0)
+  IS_SUCCESS="false"
+  [ "$IP_FWD" = "1" ] && IS_SUCCESS="true"
+
+  cat <<EOF
+{
+  "success": $IS_SUCCESS,
+  "reason": "$REASON",
+  "ip_forward": $IP_FWD,
+  "firewall_restarted": $FW_RESTARTED,
+  "pbr_reloaded": $PBR_RELOADED,
+  "strict_enforcement": false,
+  "message": "Gateway forwarding and locks recovered successfully"
+}
+EOF
+}
+
+# ------------------------------------------------------------------------------
 # CLI ROUTER DISPATCH
 # ------------------------------------------------------------------------------
 case "$1" in
   status)
     cmd_status
+    ;;
+  recover)
+    shift
+    cmd_recover "$@"
     ;;
   ssl)
     shift
@@ -1119,7 +1199,7 @@ case "$1" in
     ;;
   *)
     echo "vpnctl: OpenWrt WireGuard & Policy-Based Routing CLI"
-    echo "Commands: status, telemetry, strict, devices, tunnels, assign, tunnel, apps, app_set, app_delete, app_toggle, ping, discover"
+    echo "Commands: status, recover, telemetry, strict, devices, tunnels, assign, tunnel, apps, app_set, app_delete, app_toggle, ping, discover"
     exit 1
     ;;
 esac

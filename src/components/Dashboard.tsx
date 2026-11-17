@@ -40,7 +40,7 @@ const defaultAppSettings: AppSettings = {
     mode: 'live',
     host: 'localhost',
     sshKeyPath: '',
-    strictKillswitch: true,
+    strictKillswitch: false,
     pollingIntervalSeconds: 10,
   },
   ui: {

@@ -933,6 +933,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
+              {/* Emergency Gateway Recovery Card */}
+              <div className="p-4 rounded-2xl bg-emerald-500/5 dark:bg-emerald-400/5 border border-emerald-500/20 dark:border-emerald-400/20 space-y-3 shadow-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-neutral-900 dark:text-neutral-100 text-xs">
+                        Built-in Self-Healing & Gateway Recovery
+                      </h5>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        Watchdog auto-recovers kernel IP forwarding & clears deadlocked procd locks. Terminal command: <code className="font-mono">fix_internet</code>.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/system/recover', { method: 'POST' });
+                        const data = await res.json();
+                        alert(data.success ? 'Gateway forwarding and locks recovered successfully!' : `Recovery error: ${data.error}`);
+                        fetchLogs();
+                      } catch {
+                        alert('Failed to connect to gateway daemon');
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Run Recovery</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Live Daemon Logs & Diagnostic Console */}
               <div className="p-4 rounded-2xl bg-neutral-100/70 dark:bg-neutral-800/60 border border-black/[0.04] dark:border-white/[0.05] space-y-3">
                 <div className="flex items-center justify-between gap-2">
@@ -1022,7 +1058,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Strict Killswitch Mode
                   </span>
                   <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Immediately drop traffic if a device's assigned WireGuard tunnel goes down, preventing WAN leaks.
+                    Immediately drop traffic if a device's assigned WireGuard tunnel goes down. (Note: May disrupt LAN forwarding during tunnel keepalive drops. Leave disabled for general use).
                   </p>
                 </div>
                 <input

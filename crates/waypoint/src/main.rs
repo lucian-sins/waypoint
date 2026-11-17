@@ -9,8 +9,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
-// Include generated static assets map from build.rs
-include!(concat!(env!("OUT_DIR"), "/static_assets.rs"));
+// Include pre-generated static assets map
+include!("static_assets.rs");
 
 #[derive(serde::Serialize, Clone)]
 struct LogEntry {
@@ -535,6 +535,9 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
                 .or_else(|_| fs::read_to_string("/proc/device-tree/model"))
                 .map(|s| s.trim().to_string())
                 .unwrap_or_else(|_| "Generic OpenWrt Router".to_string());
+            let ip_forward = fs::read_to_string("/proc/sys/net/ipv4/ip_forward")
+                .map(|s| s.trim() == "1")
+                .unwrap_or(true);
             let resp = serde_json::json!({
                 "mode": "native",
                 "daemon": "waypoint",
@@ -544,9 +547,50 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
                 "ipc": format!("localhost ({})", get_vpnctl_path()),
                 "port": 8443,
                 "uptime_raw": uptime.trim(),
-                "status": "active"
+                "status": "active",
+                "ip_forward": ip_forward,
+                "watchdog": "active"
             });
             respond_json(stream, 200, &resp.to_string());
+            return;
+        }
+
+        // POST /api/system/recover
+        if method == "POST" && path == "/api/system/recover" {
+            app_log(&state, "INFO", "Emergency gateway recovery requested via /api/system/recover");
+
+            // Invalidate cache
+            {
+                let mut cache = state.cache.lock().unwrap();
+                cache.data = None;
+            }
+
+            // Zero-latency immediate kernel forwarding enable
+            let forward_path = Path::new("/proc/sys/net/ipv4/ip_forward");
+            if forward_path.exists() {
+                let _ = fs::write(forward_path, "1");
+            }
+
+            match exec_vpnctl(&state, &["recover", "manual_api"]) {
+                Ok(out) => {
+                    app_log(&state, "INFO", &format!("✅ Recovery result: {}", out.trim()));
+                    let out_json: serde_json::Value = serde_json::from_str(&out).unwrap_or_else(|_| {
+                        serde_json::json!({
+                            "success": true,
+                            "raw": out.trim()
+                        })
+                    });
+                    respond_json(stream, 200, &out_json.to_string());
+                }
+                Err(err) => {
+                    app_log(&state, "ERROR", &format!("❌ Recovery failed: {}", err));
+                    let err_json = serde_json::json!({
+                        "success": false,
+                        "error": err
+                    });
+                    respond_json(stream, 500, &err_json.to_string());
+                }
+            }
             return;
         }
 
@@ -621,7 +665,7 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
             }
             let payload: StrictPayload =
                 serde_json::from_str(&body_str).unwrap_or(StrictPayload { strict: None });
-            let strict_val = payload.strict.unwrap_or(true);
+            let strict_val = payload.strict.unwrap_or(false);
             let arg = if strict_val { "1" } else { "0" };
 
             {
@@ -1364,6 +1408,51 @@ fn main() {
         "INFO",
         &format!("⚡ WayPoint WRT Native OpenWrt Daemon started on http://{}", bind_addr),
     );
+
+    // Background Self-Healing Watchdog:
+    // Continuously monitors kernel IP forwarding (/proc/sys/net/ipv4/ip_forward).
+    // If PBR or tunnel reload deadlocks drop forwarding to 0, it instantaneously restores it
+    // and invokes vpnctl recover to clear stale locks and restore firewall forward chains.
+    let watchdog_state = Arc::clone(&state);
+    thread::spawn(move || {
+        loop {
+            thread::sleep(Duration::from_secs(20));
+
+            let forward_path = Path::new("/proc/sys/net/ipv4/ip_forward");
+            if forward_path.exists() {
+                if let Ok(val) = fs::read_to_string(forward_path) {
+                    if val.trim() == "0" {
+                        app_log(
+                            &watchdog_state,
+                            "CRITICAL",
+                            "⚠️ Kernel IPv4 packet forwarding severed (net.ipv4.ip_forward = 0)! Initiating automatic self-healing...",
+                        );
+
+                        // Instant zero-latency kernel re-enable
+                        let _ = fs::write(forward_path, "1");
+
+                        // Clear stale locks and rebuild firewall chains
+                        match exec_vpnctl(&watchdog_state, &["recover", "watchdog_auto"]) {
+                            Ok(out) => {
+                                app_log(
+                                    &watchdog_state,
+                                    "INFO",
+                                    &format!("✅ Gateway auto-recovery completed: {}", out.trim()),
+                                );
+                            }
+                            Err(err) => {
+                                app_log(
+                                    &watchdog_state,
+                                    "WARN",
+                                    &format!("⚠️ Watchdog auto-recovery execution error: {}", err),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
 
     for stream_res in listener.incoming() {
         match stream_res {

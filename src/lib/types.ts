@@ -48,6 +48,7 @@ export interface RouterStatus {
     uptime_s: number;
     wan_up: boolean;
     wan_ip: string;
+    ip_forward?: boolean;
   };
   pbr: {
     enabled: boolean;
