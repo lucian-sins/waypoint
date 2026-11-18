@@ -1248,7 +1248,7 @@ EOF
         cat <<EOF
 {
   "success": false,
-  "error": "AdGuard Home is not installed on this router. Local port chaining is only for router-hosted AdGuard. External network resolvers (e.g. 192.168.10.50) operate natively in Standard Mode."
+  "error": "AdGuard Home is not installed on this router. Local port chaining is only for router-hosted AdGuard. External network resolvers operate natively in Standard Mode."
 }
 EOF
         return 1

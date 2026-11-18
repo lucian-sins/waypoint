@@ -60,7 +60,7 @@ export interface RouterStatus {
 }
 
 export interface AppSettings {
-  subnets: string[]; // e.g. ["192.168.10.0/24"]
+  subnets: string[]; // e.g. ["192.168.1.0/24"]
   router: {
     mode: 'mock' | 'live';
     host: string;
@@ -111,7 +111,7 @@ export interface AppRouteRule {
   name: string; // e.g. "Crunchyroll"
   serviceKey?: string; // preset id e.g. "crunchyroll" or "custom"
   tunnel: string; // "direct" | "wgus" | "wges" | etc.
-  targetDevice: 'all' | string; // 'all' or device IP (e.g. "192.168.10.163")
+  targetDevice: 'all' | string; // 'all' or device IP (e.g. "192.168.1.100")
   domains: string[];
   enabled: boolean;
 }

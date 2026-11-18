@@ -81,7 +81,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // CSR form state
   const [csrCommonName, setCsrCommonName] = useState('router.lan');
-  const [csrSans, setCsrSans] = useState('192.168.10.1, router.lan');
+  const [csrSans, setCsrSans] = useState(
+    typeof window !== 'undefined' && window.location.hostname ? `${window.location.hostname}, router.lan` : '192.168.1.1, router.lan'
+  );
   const [csrOrg, setCsrOrg] = useState('WayPoint WRT');
   const [generatingCsr, setGeneratingCsr] = useState(false);
   const [generatedCsr, setGeneratedCsr] = useState<string | null>(null);
@@ -405,7 +407,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const clean = newCidr.trim();
     if (!clean) return;
     if (!isValidCidr(clean)) {
-      setCidrError('Invalid CIDR format. Examples: 192.168.10.0/24, 10.0.0.0/8');
+      setCidrError('Invalid CIDR format. Examples: 192.168.1.0/24, 10.0.0.0/8');
       return;
     }
     if (formSettings.subnets.includes(clean)) {
@@ -1062,7 +1064,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         )}
                       </div>
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
-                        Port-chaining for setups with AdGuard Home <strong>installed directly on this router</strong>. External LAN resolvers (e.g. 192.168.10.50) operate natively in Standard Mode.
+                        Port-chaining for setups with AdGuard Home <strong>installed directly on this router</strong>. External network resolvers (Pi-hole, AdGuard on LAN) operate natively in Standard Mode.
                       </p>
                     </div>
                   </div>
@@ -1085,7 +1087,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <span className="font-semibold block">Router-Hosted AdGuard Feature Only</span>
                       <p className="leading-relaxed text-neutral-600 dark:text-neutral-300">
                         This port-chaining optimization is <strong>only required when AdGuard Home is installed directly on this OpenWrt router</strong>.
-                        If your AdGuard Home or Pi-hole runs on a separate machine on your network (such as <code>192.168.10.50</code>), keep <strong>Standard (Port 53)</strong> enabled—dnsmasq automatically forwards queries upstream to your server while retaining full PBR application routing.
+                        If your AdGuard Home, Pi-hole, or DNS server runs on a separate machine or server on your LAN, keep <strong>Standard (Port 53)</strong> enabled—dnsmasq automatically forwards queries upstream while retaining full PBR application routing.
                       </p>
                     </div>
                   </div>
@@ -1129,7 +1131,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="button"
                     onClick={handleOptimizeAdguard}
                     disabled={optimizingDns || dnsStatus?.mode === 'chained' || !dnsStatus?.installed}
-                    title={!dnsStatus?.installed ? "Requires AdGuard Home installed directly on this router. External resolvers (e.g. 192.168.10.50) operate in Standard Mode." : "Chain router-hosted AdGuard Home on port 53 with dnsmasq on port 54"}
+                    title={!dnsStatus?.installed ? "Requires AdGuard Home installed directly on this router. External resolvers operate in Standard Mode." : "Chain router-hosted AdGuard Home on port 53 with dnsmasq on port 54"}
                     className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {optimizingDns ? (
@@ -1537,7 +1539,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="text"
                       value={csrCommonName}
                       onChange={(e) => setCsrCommonName(e.target.value)}
-                      placeholder="e.g. router.lan or 192.168.10.1"
+                      placeholder="e.g. router.lan or 192.168.1.1"
                       className="w-full px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-xs font-mono focus:outline-none focus:border-blue-500 text-neutral-900 dark:text-neutral-100"
                     />
                   </div>
@@ -1550,7 +1552,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="text"
                       value={csrSans}
                       onChange={(e) => setCsrSans(e.target.value)}
-                      placeholder="e.g. 192.168.10.1, router.lan, router.local"
+                      placeholder="e.g. 192.168.1.1, router.lan, router.local"
                       className="w-full px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-xs font-mono focus:outline-none focus:border-blue-500 text-neutral-900 dark:text-neutral-100"
                     />
                   </div>

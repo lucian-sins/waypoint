@@ -505,7 +505,7 @@ export function getMacVendorInfo(mac: string): MacVendorInfo {
 }
 
 /**
- * Detects if a device has no custom or informative hostname (e.g. Device-192.168.10.x, lwip0, etc.)
+ * Detects if a device has no custom or informative hostname (e.g. Device-192.168.1.x, lwip0, etc.)
  */
 export function isUnnamedDevice(device: Device): boolean {
   if (!device || !device.name) return true;
