@@ -359,10 +359,10 @@ cmd_tunnels() {
         is_up = (iface in wg_seen)
 
         if (is_up) {
-          state = "up"
           handshake = wg_handshake[iface]
           age = (handshake > 0) ? (now - handshake) : 999999
           if (age < 0) age = 0
+          state = (handshake > 0 && age <= 180) ? "up" : "down"
           rx = wg_rx[iface]
           tx = wg_tx[iface]
           endpoint = wg_endpoint[iface]
@@ -488,6 +488,19 @@ cmd_assign() {
   fi
   if [ "$(uci -q get pbr.config.resolver_set)" != "$TARGET_RESOLVER" ]; then
     uci -q set pbr.config.resolver_set="$TARGET_RESOLVER"
+  fi
+
+  # Ensure DNS Interception rule exists in firewall so client DNS queries never get blackholed into VPN tunnels
+  if ! uci -q get firewall.dns_intercept >/dev/null; then
+    uci -q set firewall.dns_intercept=redirect
+    uci -q set firewall.dns_intercept.name='Intercept-DNS'
+    uci -q set firewall.dns_intercept.src='lan'
+    uci -q set firewall.dns_intercept.proto='tcp udp'
+    uci -q set firewall.dns_intercept.src_dport='53'
+    uci -q set firewall.dns_intercept.dest_port='53'
+    uci -q set firewall.dns_intercept.target='DNAT'
+    uci commit firewall 2>/dev/null || true
+    [ -x /etc/init.d/firewall ] && /etc/init.d/firewall reload >/dev/null 2>&1 || true
   fi
 
   uci commit pbr
@@ -804,6 +817,19 @@ cmd_app_set() {
   fi
   if [ "$(uci -q get pbr.config.resolver_set)" != "$TARGET_RESOLVER" ]; then
     uci -q set pbr.config.resolver_set="$TARGET_RESOLVER"
+  fi
+
+  # Ensure DNS Interception rule exists in firewall so client DNS queries never get blackholed into VPN tunnels
+  if ! uci -q get firewall.dns_intercept >/dev/null; then
+    uci -q set firewall.dns_intercept=redirect
+    uci -q set firewall.dns_intercept.name='Intercept-DNS'
+    uci -q set firewall.dns_intercept.src='lan'
+    uci -q set firewall.dns_intercept.proto='tcp udp'
+    uci -q set firewall.dns_intercept.src_dport='53'
+    uci -q set firewall.dns_intercept.dest_port='53'
+    uci -q set firewall.dns_intercept.target='DNAT'
+    uci commit firewall 2>/dev/null || true
+    [ -x /etc/init.d/firewall ] && /etc/init.d/firewall reload >/dev/null 2>&1 || true
   fi
 
   uci commit pbr
@@ -1314,6 +1340,37 @@ cmd_recover() {
       [ -x /etc/init.d/dnsmasq ] && /etc/init.d/dnsmasq restart >/dev/null 2>&1 || true
     fi
   fi
+
+  # 3.3 Ensure DNS Interception rule exists so client DNS queries never get blackholed into VPN tunnels
+  if ! uci -q get firewall.dns_intercept >/dev/null; then
+    uci -q set firewall.dns_intercept=redirect
+    uci -q set firewall.dns_intercept.name='Intercept-DNS'
+    uci -q set firewall.dns_intercept.src='lan'
+    uci -q set firewall.dns_intercept.proto='tcp udp'
+    uci -q set firewall.dns_intercept.src_dport='53'
+    uci -q set firewall.dns_intercept.dest_port='53'
+    uci -q set firewall.dns_intercept.target='DNAT'
+    uci commit firewall 2>/dev/null || true
+  fi
+
+  # 3.4 Ensure PBR resolver_set is set to dnsmasq.nftset for dynamic app domain routing
+  if command -v nft >/dev/null 2>&1 && dnsmasq --version 2>/dev/null | grep -qw 'nftset'; then
+    uci -q set pbr.config.resolver_set='dnsmasq.nftset'
+    uci commit pbr 2>/dev/null || true
+  fi
+
+  # 3.5 Re-resolve stalled WireGuard tunnel endpoints if handshake expired
+  NOW_TS=$(date +%s)
+  for iface in $(uci -q show network | grep -E "=interface$" | cut -d. -f2); do
+    if [ "$(uci -q get network."$iface".proto)" = "wireguard" ]; then
+      HS=$(wg show "$iface" latest-handshakes 2>/dev/null | awk '{print $2}' || echo 0)
+      [ -z "$HS" ] && HS=0
+      AGE=$((NOW_TS - HS))
+      if [ "$HS" -eq 0 ] || [ "$AGE" -gt 300 ]; then
+        ifup "$iface" >/dev/null 2>&1 || true
+      fi
+    fi
+  done
 
   # 4. Force kernel IP packet forwarding on immediately
   sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true

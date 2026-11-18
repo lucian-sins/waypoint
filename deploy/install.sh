@@ -111,6 +111,19 @@ fi
 
 uci commit pbr
 
+# Ensure DNS Interception rule exists so client DNS queries never get blackholed into VPN tunnels
+if ! uci -q get firewall.dns_intercept >/dev/null; then
+    uci -q set firewall.dns_intercept=redirect
+    uci -q set firewall.dns_intercept.name='Intercept-DNS'
+    uci -q set firewall.dns_intercept.src='lan'
+    uci -q set firewall.dns_intercept.proto='tcp udp'
+    uci -q set firewall.dns_intercept.src_dport='53'
+    uci -q set firewall.dns_intercept.dest_port='53'
+    uci -q set firewall.dns_intercept.target='DNAT'
+    uci commit firewall 2>/dev/null || true
+    [ -x /etc/init.d/firewall ] && /etc/init.d/firewall reload >/dev/null 2>&1 || true
+fi
+
 # Ensure persistent kernel IP forwarding is active and immune to reload drops
 mkdir -p /etc/sysctl.d
 cat <<'EOF' > /etc/sysctl.d/99-waypoint.conf
