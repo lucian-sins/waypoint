@@ -1338,6 +1338,14 @@ EOF
 cmd_recover() {
   REASON="${1:-manual}"
 
+  # 0. CPU Load Throttling: if 1-minute load average is high (>= 2.0 on 2-core MT7621), avoid heavy reloads
+  LOAD1=$(awk '{print $1}' /proc/loadavg 2>/dev/null | cut -d. -f1 || echo 0)
+  if [ -n "$LOAD1" ] && [ "$LOAD1" -ge 2 ]; then
+    echo "Notice: High CPU load ($LOAD1). Skipping heavy recovery to protect system stability."
+    echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true
+    return 0
+  fi
+
   # 1. Clear any stuck procd locks preventing service and system reloads
   rm -f /tmp/lock/procd_pbr.lock 2>/dev/null || true
   rm -f /tmp/lock/procd_waypoint.lock 2>/dev/null || true
@@ -1402,14 +1410,15 @@ cmd_recover() {
     uci commit pbr 2>/dev/null || true
   fi
 
-  # 3.5 Re-resolve stalled WireGuard tunnel endpoints if handshake expired
+  # 3.5 Re-resolve WireGuard tunnel endpoints ONLY for actively assigned tunnels
   NOW_TS=$(date +%s)
-  for iface in $(uci -q show network | grep -E "=interface$" | cut -d. -f2); do
+  ASSIGNED_IFACES=$(uci -q show pbr | grep -E "interface='wg" | cut -d\' -f2 | sort -u)
+  for iface in $ASSIGNED_IFACES; do
     if [ "$(uci -q get network."$iface".proto)" = "wireguard" ]; then
       HS=$(wg show "$iface" latest-handshakes 2>/dev/null | awk '{print $2}' || echo 0)
       [ -z "$HS" ] && HS=0
       AGE=$((NOW_TS - HS))
-      if [ "$HS" -eq 0 ] || [ "$AGE" -gt 300 ]; then
+      if [ "$AGE" -gt 300 ]; then
         ifup "$iface" >/dev/null 2>&1 || true
       fi
     fi
@@ -1421,10 +1430,10 @@ cmd_recover() {
   sysctl -w net.ipv4.conf.all.forwarding=1 >/dev/null 2>&1 || true
   echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true
 
-  # 5. Restore firewall forward chain if missing or stripped
+  # 5. Smoothly reload firewall without tearing down kernel forward chains
   FW_RESTARTED="false"
   if [ -x /etc/init.d/firewall ]; then
-    /etc/init.d/firewall restart >/dev/null 2>&1 || /etc/init.d/firewall reload >/dev/null 2>&1 || true
+    /etc/init.d/firewall reload >/dev/null 2>&1 || true
     FW_RESTARTED="true"
   fi
 

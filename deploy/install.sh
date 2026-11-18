@@ -134,6 +134,14 @@ else
     fi
 fi
 
+# Optimize PBR procd reload delay to debounce hotplug interface storms (prevents reboot loops)
+uci -q set pbr.config.procd_reload_delay='3'
+uci commit pbr 2>/dev/null || true
+
+# Increase dnsmasq concurrent query capacity from default 150 to 1000 (prevents query drops during streaming bursts)
+uci -q set dhcp.@dnsmasq[0].dnsforwardmax='1000'
+uci commit dhcp 2>/dev/null || true
+
 # Ensure persistent kernel IP forwarding is active and immune to reload drops
 mkdir -p /etc/sysctl.d
 cat <<'EOF' > /etc/sysctl.d/99-waypoint.conf
