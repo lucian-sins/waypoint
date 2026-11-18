@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Globe,
+  Info,
 } from 'lucide-react';
 import type { AppSettings, Tunnel, Device, AddTunnelPayload, SslStatus, DnsPipelineStatus } from '../lib/types';
 import { isValidCidr } from '../lib/cidr';
@@ -1061,7 +1062,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         )}
                       </div>
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
-                        Chain AdGuard Home (:53) with dnsmasq (:54) to combine network-wide ad blocking with OpenWrt PBR application routing.
+                        Port-chaining for setups with AdGuard Home <strong>installed directly on this router</strong>. External LAN resolvers (e.g. 192.168.10.50) operate natively in Standard Mode.
                       </p>
                     </div>
                   </div>
@@ -1076,6 +1077,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <RefreshCw className={`w-3.5 h-3.5 ${loadingDns ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
+
+                {dnsStatus && !dnsStatus.installed && (
+                  <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-800 dark:text-blue-300 flex items-start gap-2.5">
+                    <Info className="w-4 h-4 shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
+                    <div className="space-y-1">
+                      <span className="font-semibold block">Router-Hosted AdGuard Feature Only</span>
+                      <p className="leading-relaxed text-neutral-600 dark:text-neutral-300">
+                        This port-chaining optimization is <strong>only required when AdGuard Home is installed directly on this OpenWrt router</strong>.
+                        If your AdGuard Home or Pi-hole runs on a separate machine on your network (such as <code>192.168.10.50</code>), keep <strong>Standard (Port 53)</strong> enabled—dnsmasq automatically forwards queries upstream to your server while retaining full PBR application routing.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1">
                   <div className="p-2.5 rounded-xl bg-white/80 dark:bg-neutral-900/60 border border-black/[0.04] dark:border-white/[0.05]">
@@ -1114,7 +1128,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={handleOptimizeAdguard}
-                    disabled={optimizingDns || dnsStatus?.mode === 'chained'}
+                    disabled={optimizingDns || dnsStatus?.mode === 'chained' || !dnsStatus?.installed}
+                    title={!dnsStatus?.installed ? "Requires AdGuard Home installed directly on this router. External resolvers (e.g. 192.168.10.50) operate in Standard Mode." : "Chain router-hosted AdGuard Home on port 53 with dnsmasq on port 54"}
                     className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {optimizingDns ? (
@@ -1122,7 +1137,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     ) : (
                       <Zap className="w-3.5 h-3.5" />
                     )}
-                    <span>Optimize for AdGuard Home</span>
+                    <span>Optimize for AdGuard Home {dnsStatus && !dnsStatus.installed ? '(Router Only)' : ''}</span>
                   </button>
 
                   <button

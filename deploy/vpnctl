@@ -1219,6 +1219,21 @@ EOF
       ;;
 
     optimize_adguard)
+      # Guardrail: Check if AdGuard Home is actually installed on this router
+      AG_BIN=""
+      for b in /usr/bin/AdGuardHome /usr/sbin/AdGuardHome /opt/AdGuardHome/AdGuardHome /etc/AdGuardHome/AdGuardHome; do
+        if [ -x "$b" ]; then AG_BIN="$b"; break; fi
+      done
+      if [ -z "$AG_BIN" ] && ! pgrep -f "AdGuardHome" >/dev/null 2>&1; then
+        cat <<EOF
+{
+  "success": false,
+  "error": "AdGuard Home is not installed on this router. Local port chaining is only for router-hosted AdGuard. External network resolvers (e.g. 192.168.10.50) operate natively in Standard Mode."
+}
+EOF
+        return 1
+      fi
+
       # Shift dnsmasq to port 54 and allow local service queries
       uci -q set dhcp.@dnsmasq[0].port='54'
       uci -q set dhcp.@dnsmasq[0].localservice='0'
