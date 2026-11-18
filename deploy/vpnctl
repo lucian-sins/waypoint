@@ -490,17 +490,27 @@ cmd_assign() {
     uci -q set pbr.config.resolver_set="$TARGET_RESOLVER"
   fi
 
-  # Ensure DNS Interception rule exists in firewall so client DNS queries never get blackholed into VPN tunnels
-  if ! uci -q get firewall.dns_intercept >/dev/null; then
-    uci -q set firewall.dns_intercept=redirect
-    uci -q set firewall.dns_intercept.name='Intercept-DNS'
-    uci -q set firewall.dns_intercept.src='lan'
-    uci -q set firewall.dns_intercept.proto='tcp udp'
-    uci -q set firewall.dns_intercept.src_dport='53'
-    uci -q set firewall.dns_intercept.dest_port='53'
-    uci -q set firewall.dns_intercept.target='DNAT'
-    uci commit firewall 2>/dev/null || true
-    [ -x /etc/init.d/firewall ] && /etc/init.d/firewall reload >/dev/null 2>&1 || true
+  # Ensure DNS Interception rule only runs when no local LAN upstream DNS resolver is configured,
+  # preventing packet reflection loops between router and local AdGuard/Pi-hole servers
+  LOCAL_DNS_UPSTREAM=$(uci -q get dhcp.@dnsmasq[0].server || echo "")
+  if [ -n "$LOCAL_DNS_UPSTREAM" ]; then
+    if uci -q get firewall.dns_intercept >/dev/null; then
+      uci -q delete firewall.dns_intercept
+      uci commit firewall 2>/dev/null || true
+      [ -x /etc/init.d/firewall ] && /etc/init.d/firewall reload >/dev/null 2>&1 || true
+    fi
+  else
+    if ! uci -q get firewall.dns_intercept >/dev/null; then
+      uci -q set firewall.dns_intercept=redirect
+      uci -q set firewall.dns_intercept.name='Intercept-DNS'
+      uci -q set firewall.dns_intercept.src='lan'
+      uci -q set firewall.dns_intercept.proto='tcp udp'
+      uci -q set firewall.dns_intercept.src_dport='53'
+      uci -q set firewall.dns_intercept.dest_port='53'
+      uci -q set firewall.dns_intercept.target='DNAT'
+      uci commit firewall 2>/dev/null || true
+      [ -x /etc/init.d/firewall ] && /etc/init.d/firewall reload >/dev/null 2>&1 || true
+    fi
   fi
 
   uci commit pbr
@@ -819,17 +829,27 @@ cmd_app_set() {
     uci -q set pbr.config.resolver_set="$TARGET_RESOLVER"
   fi
 
-  # Ensure DNS Interception rule exists in firewall so client DNS queries never get blackholed into VPN tunnels
-  if ! uci -q get firewall.dns_intercept >/dev/null; then
-    uci -q set firewall.dns_intercept=redirect
-    uci -q set firewall.dns_intercept.name='Intercept-DNS'
-    uci -q set firewall.dns_intercept.src='lan'
-    uci -q set firewall.dns_intercept.proto='tcp udp'
-    uci -q set firewall.dns_intercept.src_dport='53'
-    uci -q set firewall.dns_intercept.dest_port='53'
-    uci -q set firewall.dns_intercept.target='DNAT'
-    uci commit firewall 2>/dev/null || true
-    [ -x /etc/init.d/firewall ] && /etc/init.d/firewall reload >/dev/null 2>&1 || true
+  # Ensure DNS Interception rule only runs when no local LAN upstream DNS resolver is configured,
+  # preventing packet reflection loops between router and local AdGuard/Pi-hole servers
+  LOCAL_DNS_UPSTREAM=$(uci -q get dhcp.@dnsmasq[0].server || echo "")
+  if [ -n "$LOCAL_DNS_UPSTREAM" ]; then
+    if uci -q get firewall.dns_intercept >/dev/null; then
+      uci -q delete firewall.dns_intercept
+      uci commit firewall 2>/dev/null || true
+      [ -x /etc/init.d/firewall ] && /etc/init.d/firewall reload >/dev/null 2>&1 || true
+    fi
+  else
+    if ! uci -q get firewall.dns_intercept >/dev/null; then
+      uci -q set firewall.dns_intercept=redirect
+      uci -q set firewall.dns_intercept.name='Intercept-DNS'
+      uci -q set firewall.dns_intercept.src='lan'
+      uci -q set firewall.dns_intercept.proto='tcp udp'
+      uci -q set firewall.dns_intercept.src_dport='53'
+      uci -q set firewall.dns_intercept.dest_port='53'
+      uci -q set firewall.dns_intercept.target='DNAT'
+      uci commit firewall 2>/dev/null || true
+      [ -x /etc/init.d/firewall ] && /etc/init.d/firewall reload >/dev/null 2>&1 || true
+    fi
   fi
 
   uci commit pbr
@@ -1356,16 +1376,24 @@ cmd_recover() {
     fi
   fi
 
-  # 3.3 Ensure DNS Interception rule exists so client DNS queries never get blackholed into VPN tunnels
-  if ! uci -q get firewall.dns_intercept >/dev/null; then
-    uci -q set firewall.dns_intercept=redirect
-    uci -q set firewall.dns_intercept.name='Intercept-DNS'
-    uci -q set firewall.dns_intercept.src='lan'
-    uci -q set firewall.dns_intercept.proto='tcp udp'
-    uci -q set firewall.dns_intercept.src_dport='53'
-    uci -q set firewall.dns_intercept.dest_port='53'
-    uci -q set firewall.dns_intercept.target='DNAT'
-    uci commit firewall 2>/dev/null || true
+  # 3.3 Ensure DNS Interception rule only runs when no local LAN upstream DNS resolver is configured
+  LOCAL_DNS_UPSTREAM=$(uci -q get dhcp.@dnsmasq[0].server || echo "")
+  if [ -n "$LOCAL_DNS_UPSTREAM" ]; then
+    if uci -q get firewall.dns_intercept >/dev/null; then
+      uci -q delete firewall.dns_intercept
+      uci commit firewall 2>/dev/null || true
+    fi
+  else
+    if ! uci -q get firewall.dns_intercept >/dev/null; then
+      uci -q set firewall.dns_intercept=redirect
+      uci -q set firewall.dns_intercept.name='Intercept-DNS'
+      uci -q set firewall.dns_intercept.src='lan'
+      uci -q set firewall.dns_intercept.proto='tcp udp'
+      uci -q set firewall.dns_intercept.src_dport='53'
+      uci -q set firewall.dns_intercept.dest_port='53'
+      uci -q set firewall.dns_intercept.target='DNAT'
+      uci commit firewall 2>/dev/null || true
+    fi
   fi
 
   # 3.4 Ensure PBR resolver_set is set to dnsmasq.nftset for dynamic app domain routing
